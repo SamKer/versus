@@ -2,7 +2,7 @@
   <q-item
     clickable
     tag="a"
-    target="_blank"
+    :target="blank"
     :href="link"
   >
     <q-item-section
@@ -25,7 +25,7 @@
 import { defineComponent } from '@vue/composition-api'
 
 export default defineComponent({
-  name: 'EssentialLink',
+  name: 'MenuLeft',
   props: {
     title: {
       type: String,
@@ -43,6 +43,10 @@ export default defineComponent({
     },
 
     icon: {
+      type: String,
+      default: ''
+    },
+    blank: {
       type: String,
       default: ''
     }

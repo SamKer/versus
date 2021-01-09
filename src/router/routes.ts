@@ -5,6 +5,7 @@ const routes: RouteConfig[] = [
     path: '/',
     component: () => import('layouts/MainLayout.vue'),
     children: [
+      { path: 'admin', component: () => import('pages/Admin.vue') },
       { path: '', component: () => import('pages/Index.vue') }
     ]
   },

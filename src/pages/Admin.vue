@@ -1,11 +1,14 @@
 <template>
   <q-page padding>
-    page admin ok
+    <Admin/>
   </q-page>
 </template>
 
 <script>
+import Admin from '../components/Admin/Admin'
 export default {
+  components: { Admin }
+
   // name: 'PageName',
 }
 </script>

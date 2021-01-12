@@ -1,5 +1,5 @@
 <template>
-  <div class="fullscreen bg-blue text-white text-center q-pa-md flex flex-center">
+  <div class="404 fullscreen text-white text-center q-pa-md flex flex-center">
     <div>
       <div style="font-size: 30vh">
         404
@@ -21,6 +21,12 @@
     </div>
   </div>
 </template>
+
+<style scoped>
+  .404 {
+  background: url("/img/404.jpeg");
+  }
+</style>
 
 <script lang="ts">
 import { defineComponent } from '@vue/composition-api'

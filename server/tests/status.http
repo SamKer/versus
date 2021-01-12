@@ -1,0 +1,4 @@
+GET {{host}}/status
+Accept: application/json
+
+###

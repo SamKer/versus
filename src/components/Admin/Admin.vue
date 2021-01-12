@@ -1,13 +1,14 @@
 <template>
     <div class="Admin">
-        <pre v-text="$attrs"/>
-      yop c admin
+      <Tabs/>
     </div>
 </template>
 
 <script>
+    import Tabs from './Tabs/Tabs'
     export default {
-        props: {
+      components: { Tabs },
+      props: {
         },
     };
 </script>

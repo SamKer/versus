@@ -27,6 +27,9 @@ router.use(mwReqId)
 
 //API
 router.get('/status', prepend, require('./routes/status'), append)
-router.get('/ytdl', prepend, require('./routes/ytdl'), append)
+router.get('/ping', prepend, require('./routes/ping'), append)
 
-module.exports = router;
+//add video
+router.post('/ytdl', prepend, auth, aclIsAdmin, require('./routes/ytdl'), append)
+
+module.exports = router

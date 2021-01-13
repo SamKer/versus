@@ -4,7 +4,6 @@ mongoose.Promise = require('bluebird')
 const logger = require('./logger')
 const config = require('./config')
 
-console.log(config)
 // allow lock collection
 // mongoose.plugin(require('mongoose-schema-lock'), {promise: true});
 // mongoose.Promise = Promise;

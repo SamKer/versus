@@ -1,24 +1,18 @@
-/**
- * @api {GET} /api/v1/status Retourne le statut de l'API
- * @apiName Status API
- * @apiGroup API
- * @apiVersion 1.0.0
- * @apiDescription Retourne le statut de l'API
- * @apiPermission client
- * @apiSuccessExample {json} json-Response:
- * {"project":"API MQTT","version":"1.0.0","env":"environnement","debug":true}
- */
-module.exports = (req, res, next) => {
-  let c = req.vs.config;
+const VideoRepo = require('../repository/video')
+const download = require('../middlewares/download')
 
-  res.responseApi.success({
-    project: c.project,
-    version: c.version,
-    version_api: c.version_api,
-    version_publisher: c.version_publisher,
-    version_subscriber: c.version_subscriber,
-    env: c.env,
-    debug: c.debug,
-  }, 200);
-  next();
+/**
+ * @api {GET} /ytdl Retourne le statut de l'API
+ */
+module.exports = async (req, res, next) => {
+  let video = await VideoRepo.findByOrigin(req.body.url);
+  if (!video) {
+    video = await VideoRepo.add(req.body.url)
+  }
+
+  res.responseApi.success(video, 200)
+  req.video = video
+  res.on('finish', () => {download(video)})
+  //res.on('close', () => () => {download(video)})
+  next()
 }

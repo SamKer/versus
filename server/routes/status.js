@@ -1,12 +1,5 @@
 /**
- * @api {GET} /status Retourne le statut de l'API
- * @apiName Status API
- * @apiGroup API
- * @apiVersion 1.0.0
- * @apiDescription Retourne le statut de l'API
- * @apiPermission client
- * @apiSuccessExample {json} json-Response:
- * {"project":"API MQTT","version":"1.0.0","env":"environnement","debug":true}
+ * /status Retourne le statut de l'API
  */
 module.exports = (req, res, next) => {
   const c = req.vs.config

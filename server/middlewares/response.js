@@ -10,5 +10,4 @@ module.exports.append = (req, res, next) => {
   } else {
     logger.info('Api/Response', 'response is not an instance of Response')
   }
-  next()
 }

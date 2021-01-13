@@ -1,0 +1,10 @@
+POST {{host}}/ytdl
+Accept: application/json
+Content-Type: application/json
+Authorization: Basic {{login}} {{password}}
+
+{
+  "url": "https://www.youtube.com/watch?v=f-q5FLtlUOI&ab_channel=BrayanMendoza16"
+}
+
+###

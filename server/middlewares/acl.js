@@ -1,5 +1,5 @@
 const aclIsAdmin = (req, res, next) => {
-  console.log(req.user)
+  //console.log(req.user)
   if (req.user.role !== 'admin') {
     res.responseApi.error(`Unauthorized: Access is denied for user ${req.user.login}`, 401)
     res.responseApi.send()

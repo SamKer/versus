@@ -2,3 +2,7 @@ GET {{host}}/status
 Accept: application/json
 
 ###
+GET {{host}}/ping
+Accept: application/json
+
+###

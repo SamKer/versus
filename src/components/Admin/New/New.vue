@@ -2,7 +2,7 @@
     <div class="New">
       <q-toolbar class="bg-black text-white">
         <q-btn flat round dense icon="movie">
-          <q-badge floating color="red">2</q-badge>
+          <q-badge floating color="red">{{ videosNews.length }}</q-badge>
         </q-btn>
         <q-toolbar-title>
           Montage Vidéo
@@ -56,7 +56,7 @@
 </template>
 
 <script>
-//import VPip from 'v-pip'
+import { mapActions, mapState, mapGetters } from 'vuex'
 export default {
   //components: { VPip },
   props: {
@@ -71,22 +71,22 @@ export default {
         width: 160,
         height: 90
       }
-      // videoOptions: {
-      //   wrapper: '',
-      //   src: 'https://www.youtube.com/embed/f-q5FLtlUOI',
-      //   poster: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-      // },
-      // buttonOptions: {
-      //   wrapper: '',
-      //   type: 'button',
-      //   class: '',
-      //   label: 'Toggle picture-in-picture',
-      // }
     }
   },
 
+  mounted () {
+    this.getVideosNews()
+  },
+
+  computed: {
+    //...mapState('newvideo', ['videosNews']),
+    ...mapGetters('newvideo', ['videosNews'])
+  },
+
   methods: {
-    videoError(e) {
+    ...mapActions('newvideo', ['getVideosNews']),
+
+    videoError (e) {
       console.log(e)
     },
 

@@ -1,0 +1,5 @@
+GET {{host}}/videos/news
+Accept: application/json
+Authorization: Basic {{login}} {{password}}
+
+###

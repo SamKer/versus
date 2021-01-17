@@ -92,7 +92,16 @@ module.exports = configure(function (ctx) {
       open: true, // opens browser window automatically
       allowedHosts: [
         'youtube.com'
-      ]
+      ],
+      proxy: {
+        '/api': {
+          target: 'http://localhost:8002',
+          changeOrigin: true,
+          pathRewrite: {
+            '^/api': ''
+          }
+        }
+      }
     },
 
     // https://quasar.dev/quasar-cli/quasar-conf-js#Property%3A-framework

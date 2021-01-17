@@ -1,12 +1,12 @@
 const Entity = require('../entity/video')
-const STATE_VIDEO = {
-  created: 0,
-  downloaded: 1
-}
-
 
 const VideoRepo = {
 
+  STATE_VIDEO: {
+    created: 0,
+    downloaded: 1,
+    completed: 2
+  },
   /**
      * Cherche une video
      * @param url
@@ -27,11 +27,29 @@ const VideoRepo = {
   add: async (url) => {
     const e = new Entity({
       urlOrigin: url,
-      state: STATE_VIDEO.created,
+      state: VideoRepo.STATE_VIDEO.created,
       progress: 0
     })
     return await Entity.create(e.toObject())
-  }
+  },
+
+  update: async (video) => {
+    return await Entity.findOneAndUpdate(
+      {urlOrigin: video.urlOrigin},
+      video
+    )
+  },
+
+  fetchVideosNews: async () => {
+    return await Entity.aggregate([{
+        $match: {
+          state: {
+            $ne: VideoRepo.STATE_VIDEO.completed
+          }
+        }
+      }]
+    )
+  },
 
 }
 

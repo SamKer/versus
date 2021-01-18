@@ -5,7 +5,8 @@ const SCHEMA_VIDEOS = 'videos'
 
 // creation du schema pour neomqtt
 const mqttSchema = new Schema({
-  urlOrigin: String,
+  title: String,
+  urlOrigin: {type: String, default: null },
   url: {type: String, default: null },
   state: { type: Number, default: 0 },
   progress: { type: Number, default: 0 },

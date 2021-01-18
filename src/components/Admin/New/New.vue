@@ -7,48 +7,54 @@
         <q-toolbar-title>
           Montage Vidéo
         </q-toolbar-title>
+        <q-select
+          v-model="model"
+          :options="options"
+          outlined
+          label="en cours de création"
+          @filter="filterSelectVideos"
+        ><template v-slot:no-option>
+          <q-item>
+            <q-item-section class="text-grey">
+              No results
+            </q-item-section>
+          </q-item>
+        </template>
+        </q-select>
         <q-btn flat round dense icon="sim_card" class="q-mr-xs" title="Save"/>
         <q-btn flat round dense icon="gamepad" @click="newVideo" title="New"/>
       </q-toolbar>
 
       <div class="q-pa-md" v-if="newvid">
-        <q-input outlined label="Url Video" @keyup.enter="validUrl"/>
+        <q-input outlined bottom-slots v-model="title" label="Titre de la vidéo (sera rempacé par Film - x vs y)" counter maxlength="50" :dense="dense">
+        <template v-slot:hint>
+          Field hint
+        </template>
+        <template v-slot:append>
+          <q-btn color="primary"
+                 label="Créer"
+                 @click="createVideo(
+                   {
+                   title: title
+                   }
+                 )"/>
+        </template>
+      </q-input>
+        <q-input outlined bottom-slots v-model="url" label="Url Video" counter maxlength="250" :dense="dense">
+          <template v-slot:hint>
+          Field hint
+        </template>
+        <template v-slot:append>
+          <q-btn color="primary" label="Télécharger"  @click="validUrl"/>
+        </template>
+        </q-input>
         <div v-if="srcvid">
-<!--          <p>q-video</p>-->
           <q-video
             id="video"
             ref="video"
             :src="srcvid"
             :ratio="16/9"
           />
-<!--          <video :src="srcvid" controls />-->
-<!--          <p>q-media-player</p>-->
-<!--        <q-media-player-->
-<!--          ref="video"-->
-<!--          id="video"-->
-<!--          type="video"-->
-<!--          :source="srcvid"-->
-<!--          controls-->
-<!--          autoplay-->
-<!--          @play="syncCanvas"-->
-<!--          @error="videoError"-->
-<!--          />-->
-<!--          <p>q-video-iframe</p>-->
-<!--          <div class="q-video">-->
-<!--      <iframe-->
-<!--        :src="srcvid"-->
-<!--        frameborder="0"-->
-<!--        allowfullscreen-->
-<!--      />-->
-<!--    </div>-->
-<!--          <p>v-pip</p>-->
-<!--          <v-pip>-->
-<!--            :video-options="videoOptions"-->
-<!--            :button-options="buttonOptions"-->
-<!--            @video-in-pip="handlePIP"-->
-<!--            @requesting-pip-failure="videoError"-->
-<!--            @exiting-pip-failure="videoError"-->
-<!--          </v-pip>-->
           <canvas ref="canvas" id="canvas" :width="canvas.width" :height="canvas.height">waiting video</canvas>
         </div>
       </div>
@@ -70,7 +76,12 @@ export default {
       canvas: {
         width: 160,
         height: 90
-      }
+      },
+      model: null,
+      options: null,
+      title: '',
+      url: '',
+      dense: false
     }
   },
 
@@ -80,11 +91,33 @@ export default {
 
   computed: {
     //...mapState('newvideo', ['videosNews']),
-    ...mapGetters('newvideo', ['videosNews'])
+    ...mapGetters('newvideo', ['videosNews','video'])
   },
 
   methods: {
-    ...mapActions('newvideo', ['getVideosNews']),
+    ...mapActions('newvideo', ['getVideosNews', 'createVideo']),
+
+    filterSelectVideos (val, update, abort) {
+      if (this.options !== null) {
+        // already loaded
+        update()
+        return
+      }
+
+      setTimeout(() => {
+        update(() => {
+          console.log(this.videosNews)
+          this.options = []
+          for(let i = 0; i < this.videosNews.length;i++) {
+            let v = this.videosNews[i];
+            this.options.push({
+              label: v.vid,
+              value: v.vid
+            })
+          }
+        })
+      }, 500)
+    },
 
     videoError (e) {
       console.log(e)

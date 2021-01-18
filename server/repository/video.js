@@ -19,6 +19,15 @@ const VideoRepo = {
     return await Entity.findOne({ url: url }).exec()
   },
 
+  createVideo: async (title) => {
+    const e = new Entity({
+      title: title,
+      state: VideoRepo.STATE_VIDEO.created,
+      progress: 0
+    })
+    return await Entity.create(e.toObject())
+  },
+
   /**
      * créer une nouvelle vidéo
      * @param {String} url origin

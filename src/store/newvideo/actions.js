@@ -12,26 +12,17 @@ export function getVideosNews (context) {
 
 }
 
-export async function createVideo (context) {
-  context.commit('fetchStart')
-  const res = await this.$axios.post('/api/ytdl', {
-
+export function createVideo (context, payload) {
+  axios.post('/api/video', payload)
+    .then((data) => {
+    context.commit('setVideo', data.response.result)
   })
-  if(res && ('response' in res)) {
-    context.commit('setVideo', res.response.result)
-    context.commit('fetchEnd')
-  } else {
-    context.commit('setError', response.data.errors)
-  }
 }
 
-export async function getProgressDownload (context) {
+export function getProgressDownload (context) {
   context.commit('fetchStart')
-  const res = await this.$axios.get('/api/ytdl/progress')
-  if(res && ('response' in res)) {
-    context.commit('setVideo', res.response.result)
-    context.commit('fetchEnd')
-  } else {
-    context.commit('setError', response.data.errors)
-  }
+  axios.get('/api/ytdl/progress')
+    .then((data) => {
+      context.commit('setVideo', res.response.result)
+    })
 }

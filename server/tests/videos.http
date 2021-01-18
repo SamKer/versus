@@ -2,4 +2,16 @@ GET {{host}}/videos/news
 Accept: application/json
 Authorization: Basic {{login}} {{password}}
 
+### CREATE VIDEO
+POST {{host}}/video
+Accept: application/json
+Authorization: Basic {{login}} {{password}}
+Content-Type: application/json
+
+{
+  "title": "le jeu de la mort"
+}
+
 ###
+
+

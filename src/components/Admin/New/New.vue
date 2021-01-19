@@ -1,5 +1,6 @@
 <template>
     <div class="New">
+      <Error/>
       <q-toolbar class="bg-black text-white">
         <q-btn flat round dense icon="movie">
           <q-badge floating color="red">{{ videosNews.length }}</q-badge>
@@ -13,6 +14,7 @@
           outlined
           label="en cours de création"
           @filter="filterSelectVideos"
+          @input="loadNewVideo"
         ><template v-slot:no-option>
           <q-item>
             <q-item-section class="text-grey">
@@ -63,8 +65,9 @@
 
 <script>
 import { mapActions, mapState, mapGetters } from 'vuex'
+import Error from '../Error/Error'
 export default {
-  //components: { VPip },
+  components: { Error },
   props: {
 
   },
@@ -95,7 +98,7 @@ export default {
   },
 
   methods: {
-    ...mapActions('newvideo', ['getVideosNews', 'createVideo']),
+    ...mapActions('newvideo', ['getVideosNews', 'createVideo', 'loadNewVideo']),
 
     filterSelectVideos (val, update, abort) {
       if (this.options !== null) {
@@ -106,13 +109,12 @@ export default {
 
       setTimeout(() => {
         update(() => {
-          console.log(this.videosNews)
           this.options = []
           for(let i = 0; i < this.videosNews.length;i++) {
             let v = this.videosNews[i];
             this.options.push({
-              label: v.vid,
-              value: v.vid
+              label: v.title,
+              value: v._id
             })
           }
         })

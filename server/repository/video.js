@@ -15,9 +15,18 @@ const VideoRepo = {
   findByOrigin: async (url) => {
     return await Entity.findOne({ urlOrigin: url }).exec()
   },
-  find: async (url) => {
-    return await Entity.findOne({ url: url }).exec()
+  find: async (id) => {
+    return await Entity.findOne({ _id: id }).exec()
   },
+
+  findByTitle: async (title) => {
+    return await Entity.findOne({ title: title }).exec()
+  },
+
+  findByVid: async (vid) => {
+    return await Entity.findOne({ vid: vid }).exec()
+  },
+
 
   createVideo: async (title) => {
     const e = new Entity({
@@ -44,21 +53,21 @@ const VideoRepo = {
 
   update: async (video) => {
     return await Entity.findOneAndUpdate(
-      {urlOrigin: video.urlOrigin},
+      { urlOrigin: video.urlOrigin },
       video
     )
   },
 
   fetchVideosNews: async () => {
     return await Entity.aggregate([{
-        $match: {
-          state: {
-            $ne: VideoRepo.STATE_VIDEO.completed
-          }
+      $match: {
+        state: {
+          $ne: VideoRepo.STATE_VIDEO.completed
         }
-      }]
+      }
+    }]
     )
-  },
+  }
 
 }
 

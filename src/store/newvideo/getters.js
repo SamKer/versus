@@ -5,3 +5,7 @@ export function videosNews (state) {
 export function video(state) {
   return state.video
 }
+
+export function error(state) {
+  return state.error
+}

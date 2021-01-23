@@ -1,7 +1,7 @@
 <template>
     <div class="Error">
       <q-dialog
-        v-model="show"
+        v-model="showError"
       >
         <q-card style="width: 300px">
           <q-card-section>
@@ -13,7 +13,7 @@
           </q-card-section>
 
           <q-card-actions align="right" class="bg-white text-teal">
-            <q-btn flat label="OK" v-close-popup />
+            <q-btn flat label="OK" v-close-popup @click="setError(false)" />
           </q-card-actions>
         </q-card>
       </q-dialog>
@@ -21,16 +21,17 @@
 </template>
 
 <script>
-  import { mapGetters } from 'vuex'
+  import { mapGetters, mapActions } from 'vuex'
     export default {
        data () {
          return {
-           show: false
          }
        },
-
       computed: {
-          ...mapGetters('newvideo', ['error'])
+          ...mapGetters('newvideo', ['error', 'showError'])
+       },
+      methods: {
+         ...mapActions('newvideo', ['setError'])
       }
     };
 </script>

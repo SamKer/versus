@@ -18,6 +18,9 @@ module.exports = {
   },
   loadVideo: async (req, res, next) => {
     let id = req.body.id
+    if(!id) {
+      id = req.params.id
+    }
     let video = await VideoRepo.find(id)
     if (!video) {
       res.responseApi.error("aucune video n'a été trouvée", 404)

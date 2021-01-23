@@ -9,3 +9,6 @@ export function video(state) {
 export function error(state) {
   return state.error
 }
+export function showError(state) {
+  return (!!state.error)
+}

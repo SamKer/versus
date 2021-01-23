@@ -20,9 +20,9 @@ export function createVideo (context, payload) {
 }
 
 export function loadNewVideo (context, payload) {
-  axios.get('/api/video', { id: payload.value })
+  axios.get(`/api/video/${payload.value}`)
     .then((data) => {
-      context.commit('setVideo', data.response.result)
+      context.commit('setVideo', data.data.response.result)
     })
     .catch((e) => {
       context.commit('setError', e.response.data.response.error)
@@ -35,4 +35,8 @@ export function getProgressDownload (context) {
     .then((data) => {
       context.commit('setVideo', res.response.result)
     })
+}
+
+export function setError(context, e) {
+  context.commit('setError', e)
 }

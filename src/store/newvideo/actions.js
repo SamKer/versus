@@ -29,8 +29,15 @@ export function loadNewVideo (context, payload) {
     })
 }
 
+export function downloadYT(context, url) {
+  console.log('test', url)
+  axios.post('/api/ytdl', {url:url})
+    .then((data) => {
+      context.commit('setVideo', data.data.response.result)
+    })
+}
+
 export function getProgressDownload (context) {
-  context.commit('fetchStart')
   axios.get('/api/ytdl/progress')
     .then((data) => {
       context.commit('setVideo', res.response.result)

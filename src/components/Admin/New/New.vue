@@ -11,40 +11,7 @@
       <q-btn flat round dense icon="gamepad" @click="newVideo" title="New"/>
     </q-toolbar>
 
-    <div class="q-pa-md" v-if="newvid">
-      <q-input outlined bottom-slots v-model="title" label="Titre de la vidéo (sera rempacé par Film - x vs y)" counter
-               maxlength="50" :dense="dense">
-        <template v-slot:hint>
-          Field hint
-        </template>
-        <template v-slot:append>
-          <q-btn color="primary"
-                 label="Créer"
-                 @click="createVideo(
-                   {
-                   title: title
-                   }
-                 )"/>
-        </template>
-      </q-input>
-      <q-input outlined bottom-slots v-model="url" label="Url Video" counter maxlength="250" :dense="dense">
-        <template v-slot:hint>
-          Field hint
-        </template>
-        <template v-slot:append>
-          <q-btn color="primary" label="Télécharger" @click="validUrl"/>
-        </template>
-      </q-input>
-      <div v-if="srcvid">
-        <q-video
-          id="video"
-          ref="video"
-          :src="srcvid"
-          :ratio="16/9"
-        />
-        <canvas ref="canvas" id="canvas" :width="canvas.width" :height="canvas.height">waiting video</canvas>
-      </div>
-    </div>
+    <Editor/>
   </div>
 </template>
 
@@ -53,9 +20,11 @@
   import Error from '../Error/Error'
   import NbNews from './NbNews/NbNews'
   import SelectNewsVideos from './SelectNewsVideos/SelectNewsVideos'
+  import Editor from './Editor/Editor'
 
   export default {
     components: {
+      Editor,
       SelectNewsVideos,
       NbNews,
       Error
@@ -63,60 +32,18 @@
     props: {},
     data () {
       return {
-        newvid: null,
-        srcvid: null,
-        canvasContext: null,
-        canvas: {
-          width: 160,
-          height: 90
-        },
-        title: '',
-        url: '',
-        dense: false
+
       }
     },
 
-    computed: {
-      ...mapGetters('newvideo', ['video'])
-    },
+
 
     methods: {
-      ...mapActions('newvideo', ['createVideo', 'loadNewVideo']),
-
       newVideo () {
         // https://www.youtube.com/embed/f-q5FLtlUOI
         // proxied by vue
         // https://i.ytimg.com/vi_webp/f-q5FLtlUOI/maxresdefault.webp
         this.newvid = true
-      },
-
-      async downloadYT (src) {
-        let r = await fetch('/ytdl', { url: src })
-
-      },
-
-      validUrl (e) {
-        this.srcvid = e.target.value
-        this.downloadYT(this.srcvid)
-        this.createCanvas()
-      },
-
-      createCanvas () {
-        setTimeout(() => {
-          console.log(this.$refs.video.$el.firstChild)
-          this.canvasContext = this.$refs.canvas.getContext('2d')
-          this.$refs.video.$on('play', this.syncCanvas, {
-            capture: true,
-            passive: true
-          })
-          //this.$refs.video.$media.addEventListener("play", this.syncCanvas)
-        }, 500)
-      },
-
-      syncCanvas () {
-        console.log('test sync')
-        this.canvasContext.drawImage(this.$refs.video.$el, 0, 0, 427, 240)
-        setTimeout(this.syncCanvas, 0)
       }
     }
   }

@@ -8,9 +8,8 @@
       </q-toolbar-title>
       <SelectNewsVideos/>
       <q-btn flat round dense icon="sim_card" class="q-mr-xs" title="Save"/>
-      <q-btn flat round dense icon="gamepad" @click="newVideo" title="New"/>
+      <AddNew/>
     </q-toolbar>
-
     <Editor/>
   </div>
 </template>
@@ -21,31 +20,17 @@
   import NbNews from './NbNews/NbNews'
   import SelectNewsVideos from './SelectNewsVideos/SelectNewsVideos'
   import Editor from './Editor/Editor'
+  import AddNew from './AddNew/AddNew'
 
   export default {
     components: {
+      AddNew,
       Editor,
       SelectNewsVideos,
       NbNews,
       Error
     },
-    props: {},
-    data () {
-      return {
-
-      }
-    },
-
-
-
-    methods: {
-      newVideo () {
-        // https://www.youtube.com/embed/f-q5FLtlUOI
-        // proxied by vue
-        // https://i.ytimg.com/vi_webp/f-q5FLtlUOI/maxresdefault.webp
-        this.newvid = true
-      }
-    }
+    props: {}
   }
 
 </script>

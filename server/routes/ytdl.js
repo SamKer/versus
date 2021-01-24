@@ -5,13 +5,21 @@ const download = require('../middlewares/download')
  * @api {GET} /ytdl Retourne le statut de l'API
  */
 module.exports = async (req, res, next) => {
-  let video = await VideoRepo.findByOrigin(req.body.url);
+  let video = null
+  if(req.body._id) {
+    video = await VideoRepo.find(req.body._id)
+  } else {
+    video = await VideoRepo.findByOrigin(req.body.urlOrigin)
+  }
   if (!video) {
-    video = await VideoRepo.add(req.body.url)
+    video = {urlOrigin: req.body.urlOrigin}
+    video = await VideoRepo.add(req.body.urlOrigin)
+  } else {
+    video.urlOrigin = req.body.urlOrigin
+    video = await VideoRepo.update(video)
   }
 
   res.responseApi.success(video, 200)
-  req.video = video
   res.on('finish', () => {download(video)})
   //res.on('close', () => () => {download(video)})
   next()

@@ -52,9 +52,23 @@ const VideoRepo = {
   },
 
   update: async (video) => {
+    let filter = null
+    if(video._id) {
+      filter = {_id:video._id}
+    } else if (video.vid) {
+      filter = {vid: video.vid}
+    } else if (video.urlOrigin) {
+      filter = {urlOrigin: video.urlOrigin}
+    }
+    delete video._id
+    delete video.__v
+
     return await Entity.findOneAndUpdate(
-      { urlOrigin: video.urlOrigin },
-      video
+      filter,
+      video,
+      {
+        new: true
+      }
     )
   },
 

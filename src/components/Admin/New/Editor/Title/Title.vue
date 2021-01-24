@@ -4,7 +4,8 @@
                v-model="video.title"
                label="Titre de la vidéo (sera rempacé par Film - x vs y)"
                counter
-               maxlength="50" :dense="dense">
+               maxlength="150"
+               :dense="dense">
         <template v-slot:hint>
           Field hint
         </template>
@@ -23,7 +24,7 @@
 </template>
 
 <script>
-    import { mapGetters , mapActions} from 'vuex'
+    import { mapGetters , mapActions } from 'vuex'
 
     export default {
         props: {

@@ -11,6 +11,12 @@ export function getVideosNews (context) {
     }
     )
 }
+export function updateVideo (context, payload) {
+  axios.post(`/api/video/${payload._id}`, payload)
+    .then((data) => {
+      context.commit('setVideo', data.data.response.result)
+    })
+}
 
 export function createVideo (context, payload) {
   axios.post('/api/video', payload)
@@ -28,7 +34,7 @@ export function loadNewVideo (context, payload) {
       context.commit('setError', e.response.data.response.error)
     })
 }
-
+const intervalProgress = null
 export function downloadYT(context, payload) {
   axios.post('/api/ytdl', payload)
     .then((data) => {
@@ -40,6 +46,9 @@ export function downloadYT(context, payload) {
 export function getProgressDownload (context, payload) {
   if(payload.progress < 100) {
     context.dispatch('getVideo', payload)
+    setTimeout(()=> {
+      context.dispatch('getProgressDownload', payload)
+    }, 200)
   } else {
     context.commit('setVideo', payload)
   }
@@ -61,6 +70,11 @@ export function getVideo(context, payload) {
     .catch((e) => {
       context.commit('setError', e.response.data.response.error)
     })
+}
+
+
+export function saveVideo(context, payload) {
+      context.dispatch('updateVideo', payload)
 }
 
 /**

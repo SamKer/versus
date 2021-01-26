@@ -33,8 +33,9 @@ router.get('/ping', prepend, require('./routes/ping'), append)
 router.post('/ytdl', prepend, auth, aclIsAdmin, require('./routes/ytdl'), append)
 router.get('/videos/news', prepend, auth, aclIsAdmin, require('./routes/videosNews'), append)
 
-const { createVideo, loadVideo } = require('./routes/video')
+const { createVideo, loadVideo, updateVideo } = require('./routes/video')
 router.get('/video/:id', prepend, auth, aclIsAdmin, loadVideo, append)
+router.post('/video/:id', prepend, auth, aclIsAdmin, updateVideo, append)
 router.post('/video', prepend, auth, aclIsAdmin, createVideo, append)
 
 module.exports = router

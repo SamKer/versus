@@ -4,6 +4,7 @@ const VideoRepo = require('../repository/video')
  * @api {GET} /videos/news Retourne les vides en construction
  */
 module.exports = {
+
   createVideo: async (req, res, next) => {
     let title = req.body.title
     title = title.replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())));
@@ -29,4 +30,14 @@ module.exports = {
     }
     next()
   },
+  updateVideo: async (req, res, next) => {
+    let video = await VideoRepo.find(req.params.id)
+    if (!video) {
+      res.responseApi.error('aucune video trouvée', 500)
+    } else {
+      video = await VideoRepo.update(video)
+      res.responseApi.success(video, 200)
+    }
+    next()
+  }
 }

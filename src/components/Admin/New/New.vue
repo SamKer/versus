@@ -7,7 +7,7 @@
         Montage Vidéo
       </q-toolbar-title>
       <SelectNewsVideos/>
-      <q-btn flat round dense icon="sim_card" class="q-mr-xs" title="Save"/>
+      <Save/>
       <AddNew/>
     </q-toolbar>
     <Editor/>
@@ -21,9 +21,11 @@
   import SelectNewsVideos from './SelectNewsVideos/SelectNewsVideos'
   import Editor from './Editor/Editor'
   import AddNew from './AddNew/AddNew'
+  import Save from './Save/Save'
 
   export default {
     components: {
+      Save,
       AddNew,
       Editor,
       SelectNewsVideos,

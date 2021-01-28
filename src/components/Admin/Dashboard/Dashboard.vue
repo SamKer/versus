@@ -1,37 +1,45 @@
 <template>
-    <div class="Dashboard">
-  <div class="q-px-lg q-pb-md">
-    <q-timeline color="secondary">
-<!--      <q-timeline-entry heading>-->
-<!--        Timeline heading-->
-<!--      </q-timeline-entry>-->
+  <div class="Dashboard">
+    <div class="q-px-lg q-pb-md">
+      <q-timeline color="primary">
+        <!--      <q-timeline-entry heading>-->
+        <!--        Timeline heading-->
+        <!--      </q-timeline-entry>-->
 
-      <q-timeline-entry
-        title="Event Title"
-        subtitle="February 22, 1986"
-      >
-        <div>
-          Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-        </div>
-      </q-timeline-entry>
-
-      <q-timeline-entry
-        title="Event Title"
-        subtitle="February 21, 1986"
-        icon="delete"
-      >
-        <div>
-          Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
-        </div>
-      </q-timeline-entry>
-    </q-timeline>
-  </div>
+        <q-timeline-entry
+          v-for="video in videos"
+          :key="video._id"
+          :title="video.title"
+          :subtitle="'Mise à jour le ' + video.dateUpdated"
+        >
+          <q-video
+            id="video"
+            ref="video._id"
+            :src="video.urlOriginEmbeded"
+            :ratio="16/9"
+          />
+          <div>
+            Description
+          </div>
+        </q-timeline-entry>
+      </q-timeline>
     </div>
+  </div>
 </template>
 
 <script>
-    export default {
-        props: {
-        },
-    };
+  import { mapGetters, mapActions } from 'vuex'
+
+  export default {
+    props: {},
+    mounted () {
+      this.getVideos()
+    },
+    computed: {
+      ...mapGetters('dashboard', ['videos'])
+    },
+    methods: {
+      ...mapActions('dashboard', ['getVideos'])
+    }
+  }
 </script>

@@ -18,9 +18,13 @@ module.exports = async (req, res, next) => {
     video.urlOrigin = req.body.urlOrigin
     video = await VideoRepo.update(video)
   }
+  let force = null
+  if(req.body.forceDownload) {
+    force = true
+  }
 
   res.responseApi.success(video, 200)
-  res.on('finish', () => {download(video)})
+  res.on('finish', () => {download(video, force)})
   //res.on('close', () => () => {download(video)})
   next()
 }

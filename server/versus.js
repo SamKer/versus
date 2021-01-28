@@ -1,7 +1,7 @@
 require('dotenv').config()
 const fs = require('fs')
 const path = require('path')
-const uuid = require('uuid');
+const uuid = require('uuid')
 const os = require('os')
 const SymfonyStyle = require('symfony-style-console').SymfonyStyle
 const config = require('./lib/config')
@@ -22,7 +22,7 @@ const Versus = class Versus {
     this.env = process.env.NODE_ENV
     this.config = config
     this.handler = handler
-    //this.cache = cache
+    // this.cache = cache
     this.logger = logger
     this.mongo = Mongo
     this.handle = (a) => { console.log('no handler defined') }
@@ -79,18 +79,47 @@ const Versus = class Versus {
   }
 
   /**
+     * get commands
+     * @returns {Promise<[]>}
+     */
+  async commands () {
+    if (this.handler !== 'command') {
+      this.io.error('you run a command in a non-shell mode')
+      return
+    }
+    const cmds = []
+    const cmdsFS = fs.readdirSync(this.config.commands_path)
+    cmdsFS.forEach(c => {
+      const p = `${this.config.commands_path}/${c}`
+      if (!fs.existsSync(p)) return false
+      cmds.push(require(p))
+    })
+    return cmds
+  }
+
+  /**
      * Parse argvs and run if command exist
      * @param argv
      */
   async handleCommand (argv) {
     try {
-      const run = false
+      let run = false
       argv = this.parseArgv(argv)
       if (argv.cmd === 0 || argv.cmd === false) {
         argv.cmd = 'help'
       }
 
       await this.mongo.connect()
+
+      const commands = await this.commands()
+      console.log(commands)
+      commands.forEach(c => {
+        if (argv.cmd === c.name ||
+              c.shortcut.indexOf(argv.cmd) !== -1
+        ) {
+          run = c
+        }
+      })
 
       if (!run) {
         this.io.error(`no handler for command ${argv.cmd}`)
@@ -114,7 +143,7 @@ const Versus = class Versus {
         run.showUsage(this.io)
         return null
       }
-      this.io.comment(`running command ${run.app}:: ${run.name}`)
+      this.io.comment(`running command ${run.name}:: ${run.name}`)
       const code = await run.execute(argv.options, argv.arguments, this.io, this)
       if (code === 1000) {
         this.io.comment('Prompt listening:')

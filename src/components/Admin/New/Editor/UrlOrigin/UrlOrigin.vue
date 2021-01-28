@@ -1,7 +1,7 @@
 <template>
   <div class="UrlOrigin">
     <q-input outlined bottom-slots
-             v-model="video.urlOrigin"
+             v-model="urlOrigin"
              label="Url Video"
              counter maxlength="250"
              :dense="dense">
@@ -34,6 +34,7 @@
     props: {},
     data () {
       return {
+        urlOrigin: null,
         dense: false,
         // canvasContext: null,
         // canvas: {
@@ -49,6 +50,9 @@
       progressLabel () {
         return this.video.progress.toFixed(0) + '%'
       }
+    },
+    mounted () {
+      this.urlOrigin = this.video.urlOrigin
     },
     methods: {
       ...mapActions('newvideo', ['downloadYT']),

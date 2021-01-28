@@ -51,6 +51,11 @@ const VideoRepo = {
     return await Entity.create(e.toObject())
   },
 
+  /**
+   * Update video
+   * @param video
+   * @returns {Promise<any>}
+   */
   update: async (video) => {
     let filter = null
     if(video._id) {
@@ -63,11 +68,13 @@ const VideoRepo = {
     delete video._id
     delete video.__v
 
+    video.dateUpdated = Date.now()
     return await Entity.findOneAndUpdate(
       filter,
       video,
       {
-        new: true
+        returnOriginal: false
+        //new: true
       }
     )
   },
@@ -81,6 +88,10 @@ const VideoRepo = {
       }
     }]
     )
+  },
+
+  fetchAll: async () => {
+    return await Entity.find().exec()
   }
 
 }

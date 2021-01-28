@@ -19,6 +19,7 @@ module.exports = {
   cache_path: `${c.DATA_DIR}/cache`,
   log_path: `${c.DATA_DIR}/log`,
   video_path: `${c.DATA_DIR}/videos`,
+  commands_path: `${c.ROOT_PATH}/server/commands`,
   version: require(`${c.ROOT_PATH}/package`).version,
   debug: c.DEBUG === 'true',
   verbosity: 0,

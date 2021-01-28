@@ -2,6 +2,7 @@ import { store } from 'quasar/wrappers'
 import Vuex from 'vuex'
 
 import newvideo from './newvideo'
+import dashboard from './dashboard'
 
 // import example from './module-example';
 // import { ExampleStateInterface } from './module-example/state';
@@ -23,7 +24,8 @@ export default store(function ({ Vue }) {
 
   const Store = new Vuex.Store<StateInterface>({
     modules: {
-      newvideo
+      newvideo,
+      dashboard
     },
 
     // enable strict mode (adds overhead!)

@@ -4,7 +4,8 @@ Content-Type: application/json
 Authorization: Basic {{login}} {{password}}
 
 {
-  "url": "https://www.youtube.com/watch?v=f-q5FLtlUOI&ab_channel=BrayanMendoza16"
+  "urlOrigin": "https://www.youtube.com/watch?v=TZ2p40DtwZE&ab_channel=MeekKelly",
+  "forceDownload": true
 }
 
 ###

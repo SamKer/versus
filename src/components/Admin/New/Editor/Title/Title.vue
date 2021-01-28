@@ -1,7 +1,7 @@
 <template>
     <div class="Title">
       <q-input outlined bottom-slots
-               v-model="video.title"
+               v-model="title"
                label="Titre de la vidéo (sera rempacé par Film - x vs y)"
                counter
                maxlength="150"
@@ -15,7 +15,7 @@
                  label="Créer"
                  @click="createVideo(
                    {
-                   title: video.title
+                   title: title
                    }
                  )"/>
         </template>
@@ -31,12 +31,17 @@
         },
       data () {
         return {
+          title:null,
           dense: false
         }
       },
       computed: {
         ...mapGetters('newvideo', ['video'])
       },
+      mounted() {
+          this.title = this.video.title
+      },
+
       methods: {
         ...mapActions('newvideo', ['createVideo']),
       }

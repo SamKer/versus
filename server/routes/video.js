@@ -35,6 +35,9 @@ module.exports = {
     if (!video) {
       res.responseApi.error('aucune video trouvée', 500)
     } else {
+      let video = {
+        ...req.body
+      }
       video = await VideoRepo.update(video)
       res.responseApi.success(video, 200)
     }

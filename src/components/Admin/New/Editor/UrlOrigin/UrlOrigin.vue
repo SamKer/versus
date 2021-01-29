@@ -28,57 +28,64 @@
 </template>
 
 <script>
-  import { mapGetters, mapActions } from 'vuex'
+import { mapGetters, mapActions } from 'vuex'
 
-  export default {
-    props: {},
-    data () {
-      return {
-        urlOrigin: null,
-        dense: false,
-        // canvasContext: null,
-        // canvas: {
-        //   width: 160,
-        //   height: 90
-        // },
-        // newvid: null,
-        // srcvid: null
-      }
-    },
-    computed: {
-      ...mapGetters('newvideo', ['video']),
-      progressLabel () {
-        return this.video.progress.toFixed(0) + '%'
-      }
-    },
-    mounted () {
-      this.urlOrigin = this.video.urlOrigin
-    },
-    methods: {
-      ...mapActions('newvideo', ['downloadYT']),
-
-      // validUrl (e) {
-      //   this.downloadYT(e.target.value)
-      //   this.createCanvas()
+export default {
+  props: {},
+  data () {
+    return {
+      dense: false
+      // canvasContext: null,
+      // canvas: {
+      //   width: 160,
+      //   height: 90
       // },
-      //
-      // createCanvas () {
-      //   setTimeout(() => {
-      //     console.log(this.$refs.video.$el.firstChild)
-      //     this.canvasContext = this.$refs.canvas.getContext('2d')
-      //     this.$refs.video.$on('play', this.syncCanvas, {
-      //       capture: true,
-      //       passive: true
-      //     })
-      //     //this.$refs.video.$media.addEventListener("play", this.syncCanvas)
-      //   }, 500)
-      // },
-      //
-      // syncCanvas () {
-      //   console.log('test sync')
-      //   this.canvasContext.drawImage(this.$refs.video.$el, 0, 0, 427, 240)
-      //   setTimeout(this.syncCanvas, 0)
-      // }
+      // newvid: null,
+      // srcvid: null
     }
+  },
+  computed: {
+    ...mapGetters('newvideo', ['video']),
+    progressLabel () {
+      return this.video.progress.toFixed(0) + '%'
+    },
+    urlOrigin: {
+      get () {
+        return this.video.urlOrigin
+      },
+      set (u) {
+        this.$store.commit('newvideo/setUrlOrigin', u)
+      }
+    }
+  },
+  mounted () {
+    this.urlOrigin = this.video.urlOrigin
+  },
+  methods: {
+    ...mapActions('newvideo', ['downloadYT'])
+
+    // validUrl (e) {
+    //   this.downloadYT(e.target.value)
+    //   this.createCanvas()
+    // },
+    //
+    // createCanvas () {
+    //   setTimeout(() => {
+    //     console.log(this.$refs.video.$el.firstChild)
+    //     this.canvasContext = this.$refs.canvas.getContext('2d')
+    //     this.$refs.video.$on('play', this.syncCanvas, {
+    //       capture: true,
+    //       passive: true
+    //     })
+    //     //this.$refs.video.$media.addEventListener("play", this.syncCanvas)
+    //   }, 500)
+    // },
+    //
+    // syncCanvas () {
+    //   console.log('test sync')
+    //   this.canvasContext.drawImage(this.$refs.video.$el, 0, 0, 427, 240)
+    //   setTimeout(this.syncCanvas, 0)
+    // }
   }
+}
 </script>

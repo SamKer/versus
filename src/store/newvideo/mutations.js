@@ -23,3 +23,10 @@ export function initVideo(state) {
     pathOrigin: null
   }
 }
+
+export function setTitle (state, title) {
+  state.video.title = title
+}
+export function setUrlOrigin (state, urlOrigin) {
+  state.video.urlOrigin = urlOrigin
+}

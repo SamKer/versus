@@ -34,7 +34,7 @@ export function loadNewVideo (context, payload) {
       context.commit('setError', e.response.data.response.error)
     })
 }
-const intervalProgress = null
+
 export function downloadYT(context, payload) {
   axios.post('/api/ytdl', payload)
     .then((data) => {
@@ -43,14 +43,21 @@ export function downloadYT(context, payload) {
     })
 }
 
-export function getProgressDownload (context, payload) {
-  if(payload.progress < 100) {
-    context.dispatch('getVideo', payload)
-    setTimeout(()=> {
-      context.dispatch('getProgressDownload', payload)
+/**
+ * progress bar
+ * cela me semble malfoutu, revoir ça quand t'as le temps
+ * @param context
+ * @param video
+ */
+export function getProgressDownload (context, video) {
+  video = context.getters.video;
+  if(video.progress < 100) {
+    context.dispatch('getVideo', video)
+    setTimeout(async ()=> {
+      await context.dispatch('getProgressDownload', video)
     }, 200)
   } else {
-    context.commit('setVideo', payload)
+    context.commit('setVideo', video)
   }
 }
 

@@ -1,6 +1,6 @@
 <template>
     <div class="AddNew">
-      <q-btn flat round dense icon="gamepad" @click="newVideo" title="New"/>
+      <q-btn flat round dense icon="gamepad" @click="createVideo" title="New"/>
     </div>
 </template>
 
@@ -10,7 +10,7 @@
         props: {
         },
       methods: {
-          ...mapActions('newvideo', ['newVideo'])
+          ...mapActions('newvideo', ['createVideo'])
       }
     };
 </script>

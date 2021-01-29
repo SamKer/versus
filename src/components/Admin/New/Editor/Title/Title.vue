@@ -24,26 +24,31 @@
 </template>
 
 <script>
-    import { mapGetters , mapActions } from 'vuex'
+import { mapGetters, mapActions } from 'vuex'
 
-    export default {
-        props: {
+export default {
+  props: {
+  },
+  data () {
+    return {
+      dense: false
+    }
+  },
+  computed: {
+    ...mapGetters('newvideo', ['video']),
+      title: {
+        get () {
+          return this.video.title
         },
-      data () {
-        return {
-          title:null,
-          dense: false
+        set (t) {
+          t = t.replace(/\w\S*/g, (w) => (w.replace(/^\w/, (c) => c.toUpperCase())));
+          this.$store.commit('newvideo/setTitle',t)
         }
-      },
-      computed: {
-        ...mapGetters('newvideo', ['video'])
-      },
-      mounted() {
-          this.title = this.video.title
-      },
-
-      methods: {
-        ...mapActions('newvideo', ['createVideo']),
       }
-    };
+  },
+
+  methods: {
+    ...mapActions('newvideo', ['createVideo'])
+  }
+}
 </script>

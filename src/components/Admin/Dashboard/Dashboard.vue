@@ -12,7 +12,7 @@
           :title="video.title"
           :subtitle="'Mise à jour le ' + video.dateUpdated"
         >
-          <q-video
+          <q-video v-if="video.urlOriginEmbeded"
             id="video"
             ref="video._id"
             :src="video.urlOriginEmbeded"

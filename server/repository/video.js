@@ -28,9 +28,8 @@ const VideoRepo = {
   },
 
 
-  createVideo: async (title) => {
+  createVideo: async () => {
     const e = new Entity({
-      title: title,
       state: VideoRepo.STATE_VIDEO.created,
       progress: 0
     })

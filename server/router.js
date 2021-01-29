@@ -32,6 +32,7 @@ router.get('/ping', prepend, require('./routes/ping'), append)
 //add video to download
 router.post('/ytdl', prepend, auth, aclIsAdmin, require('./routes/ytdl'), append)
 router.get('/videos/news', prepend, auth, aclIsAdmin, require('./routes/videosNews'), append)
+router.get('/videos/stream', prepend, auth, aclIsAdmin, require('./routes/stream'), append)
 router.get('/videos', prepend, require('./routes/videos'), append)
 
 const { createVideo, loadVideo, updateVideo } = require('./routes/video')

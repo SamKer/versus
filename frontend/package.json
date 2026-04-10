@@ -1,0 +1,37 @@
+{
+  "name": "versus-frontend",
+  "version": "1.0.0",
+  "description": "Les plus beaux combats du cinéma",
+  "scripts": {
+    "dev": "quasar dev",
+    "build": "quasar build",
+    "lint": "eslint --ext .js,.ts,.vue ./src"
+  },
+  "dependencies": {
+    "@quasar/extras": "^1.16.11",
+    "axios": "^1.7.0",
+    "pinia": "^2.1.7",
+    "quasar": "^2.16.0",
+    "vue": "^3.4.0",
+    "vue-router": "^4.3.0"
+  },
+  "devDependencies": {
+    "@quasar/app-vite": "^2.0.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "@types/node": "^20.0.0",
+    "eslint": "^8.57.0",
+    "eslint-plugin-vue": "^9.0.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": "^20.0.0",
+    "npm": "^10.0.0"
+  },
+  "browserslist": [
+    "last 10 Chrome versions",
+    "last 10 Firefox versions",
+    "last 6 Edge versions",
+    "last 6 Safari versions"
+  ]
+}

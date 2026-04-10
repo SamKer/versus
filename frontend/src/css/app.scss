@@ -1,0 +1,42 @@
+// Global styles
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  background: $dark-page;
+}
+
+// Street Fighter-inspired title font effect
+.versus-title {
+  font-family: 'Impact', 'Arial Black', sans-serif;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: $primary;
+  text-shadow: 3px 3px 0 #8b0f1a;
+}
+
+// Fight card hover effect
+.fight-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba($primary, 0.3);
+  }
+}
+
+// Actor chip
+.actor-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+
+  &:last-child {
+    border-bottom: none;
+  }
+}

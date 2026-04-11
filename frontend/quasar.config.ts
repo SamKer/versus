@@ -10,7 +10,7 @@ export default configure(() => {
 
     build: {
       target: {
-        browser: ['es2019', 'edge88', 'firefox78', 'chrome87', 'safari13.1'],
+        browser: ['es2022', 'edge112', 'firefox110', 'chrome112', 'safari16'],
         node: 'node20'
       },
       vueRouterMode: 'hash'

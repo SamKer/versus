@@ -21,6 +21,7 @@ export interface Fight {
   movieYear?: number
   movieTmdbId?: number
   moviePoster?: string
+  title?: string
   choreographer?: string
   actors: Actor[]
   videoPath?: string

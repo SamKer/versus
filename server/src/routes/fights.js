@@ -1,10 +1,93 @@
 const express = require('express')
 const authMiddleware = require('../middleware/auth')
-const Fight = require('../models/Fight')
+const Fight        = require('../models/Fight')
+const Movie        = require('../models/Movie')
+const Actor        = require('../models/Actor')
+const Choreographer = require('../models/Choreographer')
+const ViewSnapshot = require('../models/ViewSnapshot')
 
 const router = express.Router()
 
-// Public — list all fights
+// Synchronise toutes les collections annexes à partir des données d'un combat
+async function syncCollections (data) {
+  const ops = []
+
+  // ── Films ───────────────────────────────────────────────────
+  if (data.movieTitle) {
+    const movieDoc = {
+      title:         data.movieTitle,
+      year:          data.movieYear          || undefined,
+      poster:        data.moviePoster        || undefined,
+      choreographer: data.choreographer      || undefined
+    }
+    if (data.movieTmdbId) {
+      ops.push(
+        Movie.findOneAndUpdate(
+          { tmdbId: data.movieTmdbId },
+          { ...movieDoc, tmdbId: data.movieTmdbId },
+          { upsert: true, new: true }
+        )
+      )
+    }
+  }
+
+  // ── Acteurs ─────────────────────────────────────────────────
+  for (const actor of data.actors || []) {
+    if (!actor.name) continue
+    const actorDoc = {
+      name:  actor.name,
+      photo: actor.photo || undefined
+    }
+    if (actor.tmdbId) {
+      ops.push(
+        Actor.findOneAndUpdate(
+          { tmdbId: actor.tmdbId },
+          { ...actorDoc, tmdbId: actor.tmdbId },
+          { upsert: true, new: true }
+        )
+      )
+    } else {
+      // Upsert par nom si pas de tmdbId
+      ops.push(
+        Actor.findOneAndUpdate(
+          { name: actor.name, tmdbId: { $exists: false } },
+          actorDoc,
+          { upsert: true, new: true }
+        )
+      )
+    }
+  }
+
+  // ── Chorégraphes ─────────────────────────────────────────────
+  if (data.choreographer) {
+    const names = data.choreographer.split(',').map(n => n.trim()).filter(Boolean)
+    for (const name of names) {
+      ops.push(
+        Choreographer.findOneAndUpdate(
+          { name },
+          { name },
+          { upsert: true, new: true }
+        )
+      )
+    }
+  }
+
+  await Promise.allSettled(ops)
+}
+
+// ── Snapshot de vues (1 par jour max par combat) ────────────────
+async function saveViewSnapshot (fight) {
+  if (!fight._id || !(fight.views > 0)) return
+  const today    = new Date(); today.setHours(0, 0, 0, 0)
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1)
+  await ViewSnapshot.findOneAndUpdate(
+    { fightId: fight._id, recordedAt: { $gte: today, $lt: tomorrow } },
+    { fightId: fight._id, youtubeId: fight.youtubeId, views: fight.views, recordedAt: new Date() },
+    { upsert: true }
+  )
+}
+
+// Public — liste tous les combats
 router.get('/', async (req, res) => {
   try {
     res.json(await Fight.find().sort({ createdAt: -1 }))
@@ -13,7 +96,17 @@ router.get('/', async (req, res) => {
   }
 })
 
-// Public — single fight
+// Public — historique des vues d'un combat
+router.get('/:id/views-history', async (req, res) => {
+  try {
+    const history = await ViewSnapshot.find({ fightId: req.params.id }).sort({ recordedAt: 1 })
+    res.json(history)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Public — un combat
 router.get('/:id', async (req, res) => {
   try {
     const fight = await Fight.findById(req.params.id)
@@ -24,28 +117,32 @@ router.get('/:id', async (req, res) => {
   }
 })
 
-// Admin — create
+// Admin — créer
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const fight = await new Fight(req.body).save()
+    syncCollections(req.body)
+    saveViewSnapshot(fight)            // fire-and-forget
     res.status(201).json(fight)
   } catch (err) {
     res.status(400).json({ error: err.message })
   }
 })
 
-// Admin — update
+// Admin — mettre à jour
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const fight = await Fight.findByIdAndUpdate(req.params.id, req.body, { new: true })
     if (!fight) return res.status(404).json({ error: 'Introuvable' })
+    syncCollections(req.body)
+    saveViewSnapshot(fight)            // fire-and-forget
     res.json(fight)
   } catch (err) {
     res.status(400).json({ error: err.message })
   }
 })
 
-// Admin — delete
+// Admin — supprimer
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     await Fight.findByIdAndDelete(req.params.id)

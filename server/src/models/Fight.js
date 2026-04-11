@@ -17,6 +17,7 @@ const fightSchema = new mongoose.Schema({
   movieYear:    Number,
   movieTmdbId:  Number,
   moviePoster:  String,
+  title:         String,
   choreographer: String,
   actors:       [actorSchema],
   videoPath:    String

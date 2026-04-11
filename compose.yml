@@ -1,7 +1,8 @@
 services:
   mongo:
     container_name: versus-mongo
-    image: mongo:7.0
+    image: mongo:4.4.18
+    env_file: .env
     environment:
       MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USER}
       MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD}
@@ -9,7 +10,7 @@ services:
     volumes:
       - ./data/mongo:/data/db
     ports:
-      - "${MONGODB_PORT:-27017}:27017"
+      - "27017:27017"
     restart: unless-stopped
 
   server:
@@ -18,9 +19,11 @@ services:
     env_file: .env
     environment:
       DATA_PATH: /app/data
+      PUBLIC_PATH: /app/public
     volumes:
       - ./server/src:/app/src
       - ./data:/app/data
+      - ./frontend/dist/spa:/app/public:ro
     ports:
       - "3000:3000"
     depends_on:

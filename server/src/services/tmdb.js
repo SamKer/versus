@@ -65,4 +65,25 @@ function cleanTitle (youtubeTitle) {
     .replace(/\s+/g, ' ')
 }
 
-module.exports = { searchMovie, getMovieDetails, cleanTitle }
+async function searchPerson (query) {
+  const { data } = await tmdb.get('/search/person', {
+    params: { query, language: 'fr-FR', include_adult: false }
+  })
+  return data.results
+}
+
+async function getPersonDetails (tmdbId) {
+  const { data } = await tmdb.get(`/person/${tmdbId}`, {
+    params: { language: 'fr-FR' }
+  })
+  return {
+    tmdbId:       data.id,
+    name:         data.name,
+    photo:        imgUrl(data.profile_path),
+    birthDate:    data.birthday || null,
+    placeOfBirth: data.place_of_birth || null,
+    biography:    data.biography || null
+  }
+}
+
+module.exports = { searchMovie, getMovieDetails, cleanTitle, searchPerson, getPersonDetails }

@@ -152,6 +152,7 @@
                   <q-item-section side>
                     <div class="row q-gutter-xs">
                       <q-btn flat round icon="edit" color="primary" size="sm" @click="editFight(f)" />
+                      <q-btn flat round icon="movie_creation" color="purple" size="sm" @click="$router.push(`/editor/${f._id}`)" title="Éditeur vidéo" />
                       <q-btn flat round icon="delete" color="negative" size="sm" @click="deleteFight(f._id!)" />
                     </div>
                   </q-item-section>
@@ -1303,7 +1304,8 @@ async function downloadVideo () {
       youtubeId: form.value.youtubeId
     })
     form.value.videoPath = data.videoPath
-    $q.notify({ type: 'positive', message: 'Vidéo téléchargée avec succès' })
+    await save()
+    $q.notify({ type: 'positive', message: 'Vidéo téléchargée et sauvegardée' })
   } catch (err: any) {
     $q.notify({ type: 'negative', message: err.response?.data?.error || 'Erreur de téléchargement' })
   } finally {

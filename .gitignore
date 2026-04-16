@@ -10,6 +10,9 @@ data/
 frontend/dist/
 frontend/.quasar/
 
+# MkDocs build output
+site/
+
 # Env overrides
 .env
 .env.local

@@ -15,17 +15,33 @@ services:
 
   server:
     container_name: versus-server
-    build: ./server
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    image: versus-server:latest
     env_file: .env
     environment:
       DATA_PATH: /app/data
       PUBLIC_PATH: /app/public
+      DOCS_PATH: /app/docs
     volumes:
       - ./server/src:/app/src
       - ./data:/app/data
       - ./frontend/dist/spa:/app/public:ro
+      - ./site:/app/docs:ro
     ports:
       - "3000:3000"
     depends_on:
       - mongo
     restart: unless-stopped
+
+  docs:
+    container_name: versus-docs
+    image: squidfunk/mkdocs-material
+    volumes:
+      - .:/docs
+    ports:
+      - "8001:8000"
+    profiles:
+      - docs
+    command: serve --dev-addr=0.0.0.0:8000

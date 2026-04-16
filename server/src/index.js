@@ -20,6 +20,12 @@ const publicPath = process.env.PUBLIC_PATH || path.join(__dirname, '../../public
 
 app.use('/media', express.static(dataPath))
 
+// Serve built MkDocs documentation
+const docsPath = process.env.DOCS_PATH || path.join(__dirname, '../../../site')
+if (fs.existsSync(docsPath)) {
+  app.use('/docs', express.static(docsPath))
+}
+
 // Serve frontend build (hash mode — index.html suffit pour toutes les routes)
 if (fs.existsSync(publicPath)) {
   app.use(express.static(publicPath))
@@ -39,6 +45,7 @@ app.use('/api/actors', require('./routes/actors'))
 app.use('/api/movies', require('./routes/movies'))
 app.use('/api/choreographers', require('./routes/choreographers'))
 app.use('/api/suggestions',   require('./routes/suggestions'))
+app.use('/api/projects',      require('./routes/projects'))
 
 // MongoDB
 const mongoUri = `mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@mongo:27017/${process.env.MONGODB_DBNAME}?authSource=admin`

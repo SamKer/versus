@@ -81,7 +81,7 @@
               class="event-marker"
               :style="{ left: pct(ev.time) + '%' }"
               :class="ev.type"
-              :title="`${ev.type} → ${playerName(ev.target)} -${ev.damage} (${fmtTime(ev.time)}) — clic pour supprimer`"
+              :title="`${eventLabel(ev.type)} → ${playerName(ev.target)}${ev.damage > 0 ? ' -' + ev.damage.toFixed(1) + 'pts' : ''} (${fmtTime(ev.time)}) — clic pour supprimer`"
               @click.stop="removeEvent(ev.id)"
             />
             <!-- Cursor -->
@@ -135,16 +135,31 @@
               <q-space />
               <q-btn flat dense round icon="add" size="sm" color="primary" @click="addPlayer" :disable="project.players.length >= 2" />
             </div>
-            <div v-for="(player, i) in project.players" :key="player.id" class="row items-center q-gutter-xs q-mb-xs">
-              <input type="color" v-model="player.color" class="color-picker" :title="'Couleur ' + player.name" />
-              <q-input v-model="player.name" dense dark outlined style="flex:1;min-width:0" input-class="text-caption" />
-              <q-btn-toggle
-                v-model="player.side"
-                dense flat no-caps
-                :options="[{value:'left',icon:'align_horizontal_left'},{value:'right',icon:'align_horizontal_right'}]"
-                color="grey" toggle-color="primary"
-              />
-              <q-btn flat dense round icon="delete" size="xs" color="negative" @click="removePlayer(i)" />
+            <div v-for="(player, i) in project.players" :key="player.id" class="q-mb-sm">
+              <!-- Identité -->
+              <div class="row items-center q-gutter-xs q-mb-xs">
+                <input type="color" v-model="player.color" class="color-picker" :title="'Couleur ' + player.name" />
+                <q-input v-model="player.name" dense dark outlined style="flex:1;min-width:0" input-class="text-caption" />
+                <q-btn-toggle
+                  v-model="player.side"
+                  dense flat no-caps
+                  :options="[{value:'left',icon:'align_horizontal_left'},{value:'right',icon:'align_horizontal_right'}]"
+                  color="grey" toggle-color="primary"
+                />
+                <q-btn flat dense round icon="delete" size="xs" color="negative" @click="removePlayer(i)" />
+              </div>
+              <!-- Vie finale -->
+              <div class="row items-center q-gutter-xs">
+                <q-icon name="favorite" size="11px" color="red-4" />
+                <span class="text-caption text-grey-5" style="font-size:10px;white-space:nowrap">Fin :</span>
+                <q-slider
+                  v-model.number="player.finalHp"
+                  :min="0" :max="100" :step="1"
+                  class="col" color="red-5" dense
+                  @update:model-value="recomputeDamages"
+                />
+                <span class="text-caption text-grey-4" style="width:32px;text-align:right">{{ player.finalHp }}%</span>
+              </div>
             </div>
             <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
               Aucun personnage
@@ -152,29 +167,33 @@
           </q-card-section>
         </q-card>
 
-        <!-- Add event -->
+        <!-- Hit events — 7 boutons par protagoniste -->
         <q-card dark flat bordered>
           <q-card-section class="q-pa-sm">
-            <div class="text-caption text-bold text-grey-4 q-mb-xs">AJOUTER UN ÉVÉNEMENT À {{ fmtTime(currentTime) }}</div>
-            <div class="row q-gutter-xs items-center">
-              <q-select
-                v-model="newEvent.type"
-                :options="eventTypes" dense dark outlined
-                style="width:80px" emit-value map-options
-              />
-              <q-select
-                v-model="newEvent.target"
-                :options="playerOptions" dense dark outlined
-                style="flex:1;min-width:0" emit-value map-options
-                placeholder="Cible"
-              />
-              <q-input
-                v-model.number="newEvent.damage"
-                type="number" dense dark outlined
-                style="width:56px" suffix="pts"
-                :disable="newEvent.type !== 'hit'"
-              />
-              <q-btn round dense icon="add" color="primary" @click="addEvent" :disable="!newEvent.target" />
+            <div class="text-caption text-bold text-grey-4 q-mb-sm">
+              HITS À {{ fmtTime(currentTime) }}
+            </div>
+            <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
+              Aucun personnage
+            </div>
+            <div v-for="player in project.players" :key="player.id" class="q-mb-sm">
+              <div class="row items-center justify-between q-mb-xs">
+                <span class="text-caption text-bold" :style="{ color: player.color }">{{ player.name }}</span>
+                <q-btn
+                  flat dense round icon="sports_kabaddi" size="xs" color="yellow-7"
+                  title="KO" @click="addKoEvent(player.id)"
+                />
+              </div>
+              <div class="row q-gutter-xs">
+                <q-btn
+                  v-for="btn in hitButtons" :key="btn.type"
+                  round dense size="sm"
+                  :icon="btn.icon"
+                  :color="btn.color"
+                  :title="btn.label"
+                  @click="addHitEvent(player.id, btn.type)"
+                />
+              </div>
             </div>
           </q-card-section>
         </q-card>
@@ -192,7 +211,7 @@
               <q-icon :name="eventIcon(ev.type)" :color="eventColor(ev.type)" size="14px" class="q-mr-xs" />
               <span class="text-caption text-mono text-grey-4" style="width:42px">{{ fmtTime(ev.time) }}</span>
               <span class="text-caption ellipsis col">{{ playerName(ev.target) }}</span>
-              <span v-if="ev.type==='hit'" class="text-caption text-orange q-mx-xs">-{{ ev.damage }}pts</span>
+              <span v-if="ev.damage > 0" class="text-caption text-orange q-mx-xs">-{{ ev.damage.toFixed(1) }}</span>
               <q-btn flat dense round icon="close" size="xs" color="negative" @click.stop="removeEvent(ev.id)" />
             </div>
           </q-card-section>
@@ -239,7 +258,7 @@ const videoSrc = computed(() => {
 
 // ── Project state ──────────────────────────────────────────────────────────────
 const project = reactive<{
-  players: Array<{ id: string; name: string; color: string; side: 'left' | 'right' }>
+  players: Array<{ id: string; name: string; color: string; side: 'left' | 'right'; finalHp: number }>
   events:  Array<{ id: string; time: number; type: string; target: string; damage: number }>
   cuts:    Array<{ start: number; end: number }>
 }>({
@@ -249,7 +268,7 @@ const project = reactive<{
 })
 
 // ── Video refs ─────────────────────────────────────────────────────────────────
-const videoEl      = ref<HTMLVideoElement>()
+const videoEl       = ref<HTMLVideoElement>()
 const overlayCanvas = ref<HTMLCanvasElement>()
 const videoWrapper  = ref<HTMLElement>()
 const timelineEl    = ref<HTMLElement>()
@@ -270,21 +289,34 @@ const exportError    = ref('')
 const exportProgress = ref(0)
 let   pollTimer    = 0
 
-// ── New event form ─────────────────────────────────────────────────────────────
-const newEvent = reactive({ type: 'hit', target: '', damage: 10 })
-
-const eventTypes = [
-  { label: 'Hit',   value: 'hit'   },
-  { label: 'Block', value: 'block' },
-  { label: 'KO',    value: 'ko'    }
-]
-
-const playerOptions = computed(() =>
-  project.players.map(p => ({ label: p.name, value: p.id }))
-)
-
 // ── Saving ─────────────────────────────────────────────────────────────────────
 const saving = ref(false)
+
+// ── Hit buttons ────────────────────────────────────────────────────────────────
+// 7 boutons façon manette, dans l'ordre : blocage, poing×2, pied×3, spécial
+const hitButtons = [
+  { type: 'block',   icon: 'shield',             color: 'grey-5',        label: '1 – Blocage' },
+  { type: 'punch_w', icon: 'sports_mma',          color: 'cyan-4',        label: '2 – Coup de poing faible' },
+  { type: 'punch_s', icon: 'fitness_center',      color: 'cyan-7',        label: '3 – Coup de poing fort' },
+  { type: 'kick_w',  icon: 'directions_run',      color: 'lime-5',        label: '4 – Coup de pied faible' },
+  { type: 'kick_m',  icon: 'sports_martial_arts', color: 'amber-5',       label: '5 – Coup de pied moyen' },
+  { type: 'kick_s',  icon: 'sports_martial_arts', color: 'deep-orange-5', label: '6 – Coup de pied fort' },
+  { type: 'special', icon: 'bolt',                color: 'deep-purple-3', label: '7 – Coup spécial' },
+]
+
+// Poids des dégâts (hiérarchie complète) :
+//   (2)=(4)=2×(1)  ;  (3)=(5)=2×(4)  ;  (6)=2×(5)  ;  (7)=2×(6)
+//   block(1)=1, punch_w(2)=kick_w(4)=2, punch_s(3)=kick_m(5)=4, kick_s(6)=8, special(7)=16
+const HIT_WEIGHTS: Record<string, number> = {
+  block:   1,
+  punch_w: 2,
+  punch_s: 4,
+  kick_w:  2,
+  kick_m:  4,
+  kick_s:  8,
+  special: 16,
+  hit:     2,   // rétro-compatibilité
+}
 
 // ── Lifecycle ──────────────────────────────────────────────────────────────────
 onMounted(async () => {
@@ -310,23 +342,22 @@ async function loadProject () {
   try {
     const { data } = await api.get(`/api/projects/${fightId}`)
     if (data) {
-      project.players      = data.players      || []
+      project.players      = (data.players || []).map((p: any) => ({ finalHp: 0, ...p }))
       project.events       = data.events       || []
       project.cuts         = data.cuts         || []
       exportStatus.value   = data.exportStatus || 'idle'
       exportPath.value     = data.exportPath   || ''
       exportProgress.value = 0
-      // Si une compilation était en cours avant le rechargement, reprendre le polling
       if (data.exportStatus === 'processing') pollExport()
     }
-    // Pré-remplir les joueurs depuis les acteurs de la scène si aucun joueur défini
     if (!project.players.length && fight.value?.actors?.length) {
       fight.value.actors.slice(0, 2).forEach((actor: any, i: number) => {
         project.players.push({
-          id:    crypto.randomUUID(),
-          name:  actor.character || actor.name,
-          color: i === 0 ? '#00e676' : '#e53935',
-          side:  i === 0 ? 'left' : 'right'
+          id:      crypto.randomUUID(),
+          name:    actor.character || actor.name,
+          color:   i === 0 ? '#00e676' : '#e53935',
+          side:    i === 0 ? 'left' : 'right',
+          finalHp: 0
         })
       })
     }
@@ -445,11 +476,11 @@ function drawOverlay () {
 
   const t = currentTime.value
 
-  // Compute HP
+  // Calcul HP en temps réel (tous les types sauf ko ; block = chip damage)
   const hp: Record<string, number> = {}
   project.players.forEach(p => { hp[p.id] = 100 })
   project.events
-    .filter(e => e.time <= t && e.type === 'hit')
+    .filter(e => e.time <= t && e.type !== 'ko')
     .sort((a, b) => a.time - b.time)
     .forEach(e => { hp[e.target] = Math.max(0, (hp[e.target] ?? 100) - e.damage) })
   project.events
@@ -476,7 +507,7 @@ function onTimelineClick (e: MouseEvent) {
 // ── Cuts ───────────────────────────────────────────────────────────────────────
 function stepFrame (dir: number) {
   if (!videoEl.value) return
-  const fps  = 25 // 1 frame ≈ 40 ms à 25 fps
+  const fps  = 25
   const step = dir / fps
   seekTo(Math.max(0, Math.min(duration.value, currentTime.value + step)))
 }
@@ -506,10 +537,11 @@ function removeCut (i: number) {
 function addPlayer () {
   const side = project.players.length === 0 ? 'left' : 'right'
   project.players.push({
-    id:    crypto.randomUUID(),
-    name:  `Joueur ${project.players.length + 1}`,
-    color: side === 'left' ? '#00e676' : '#e53935',
-    side
+    id:      crypto.randomUUID(),
+    name:    `Joueur ${project.players.length + 1}`,
+    color:   side === 'left' ? '#00e676' : '#e53935',
+    side,
+    finalHp: 0
   })
 }
 
@@ -523,37 +555,112 @@ function playerName (id: string) {
   return project.players.find(p => p.id === id)?.name ?? id
 }
 
+// ── Calcul automatique des dégâts ──────────────────────────────────────────────
+// totalDamage = 100 - finalHp, réparti proportionnellement selon HIT_WEIGHTS
+function recomputeDamages () {
+  project.players.forEach(player => {
+    const totalDamage = 100 - (player.finalHp ?? 0)
+    const hitEvents   = project.events.filter(e =>
+      e.target === player.id && e.type !== 'ko'
+    )
+    const totalWeight = hitEvents.reduce((sum, e) => sum + (HIT_WEIGHTS[e.type] ?? 0), 0)
+    hitEvents.forEach(e => {
+      e.damage = totalWeight > 0
+        ? Math.round(totalDamage * (HIT_WEIGHTS[e.type] ?? 0) / totalWeight * 100) / 100
+        : 0
+    })
+    project.events
+      .filter(e => e.target === player.id && e.type === 'ko')
+      .forEach(e => { e.damage = 0 })
+  })
+}
+
+// Recalcul automatique quand un finalHp change
+watch(
+  () => project.players.map(p => p.finalHp).join(','),
+  () => recomputeDamages()
+)
+
 // ── Events ─────────────────────────────────────────────────────────────────────
 const sortedEvents = computed(() =>
   [...project.events].sort((a, b) => a.time - b.time)
 )
 
-function addEvent () {
-  if (!newEvent.target) return
+function addHitEvent (targetId: string, type: string) {
   project.events.push({
     id:     crypto.randomUUID(),
     time:   Math.round(currentTime.value * 100) / 100,
-    type:   newEvent.type,
-    target: newEvent.target,
-    damage: newEvent.type === 'hit' ? newEvent.damage : 0
+    type,
+    target: targetId,
+    damage: 0
+  })
+  recomputeDamages()
+}
+
+function addKoEvent (targetId: string) {
+  project.events.push({
+    id:     crypto.randomUUID(),
+    time:   Math.round(currentTime.value * 100) / 100,
+    type:   'ko',
+    target: targetId,
+    damage: 0
   })
 }
 
 function removeEvent (id: string) {
   const i = project.events.findIndex(e => e.id === id)
   if (i >= 0) project.events.splice(i, 1)
+  recomputeDamages()
 }
 
 function eventIcon (type: string) {
-  return { hit: 'sports_martial_arts', block: 'shield', ko: 'star' }[type] ?? 'circle'
+  const map: Record<string, string> = {
+    block:   'shield',
+    punch_w: 'sports_mma',
+    punch_s: 'fitness_center',
+    kick_w:  'directions_run',
+    kick_m:  'sports_martial_arts',
+    kick_s:  'sports_martial_arts',
+    special: 'bolt',
+    ko:      'star',
+    hit:     'sports_martial_arts',
+  }
+  return map[type] ?? 'circle'
 }
 
 function eventColor (type: string) {
-  return { hit: 'orange', block: 'cyan', ko: 'yellow' }[type] ?? 'grey'
+  const map: Record<string, string> = {
+    block:   'grey-5',
+    punch_w: 'cyan-4',
+    punch_s: 'cyan-7',
+    kick_w:  'lime-5',
+    kick_m:  'amber-5',
+    kick_s:  'deep-orange-5',
+    special: 'deep-purple-3',
+    ko:      'yellow',
+    hit:     'orange',
+  }
+  return map[type] ?? 'grey'
+}
+
+function eventLabel (type: string) {
+  const map: Record<string, string> = {
+    block:   'Blocage',
+    punch_w: 'Poing faible',
+    punch_s: 'Poing fort',
+    kick_w:  'Pied faible',
+    kick_m:  'Pied moyen',
+    kick_s:  'Pied fort',
+    special: 'Coup spécial',
+    ko:      'KO',
+    hit:     'Hit',
+  }
+  return map[type] ?? type
 }
 
 // ── Save / Export ──────────────────────────────────────────────────────────────
 async function saveProject () {
+  recomputeDamages()
   saving.value = true
   try {
     await api.put(`/api/projects/${fightId}`, {
@@ -620,7 +727,6 @@ function fmtTime (s: number) {
   return `${m}:${sec}.${ms}`
 }
 
-// Resize canvas when video dimensions change
 watch(videoSrc, async () => {
   await nextTick()
   resizeCanvas()
@@ -704,9 +810,17 @@ watch(videoSrc, async () => {
   border-radius: 3px;
   transform: translateX(-50%);
   cursor: pointer;
-  &.hit   { background: #ff9800; }
-  &.block { background: #00bcd4; }
-  &.ko    { background: #ffeb3b; }
+  // Rétro-compat
+  &.hit     { background: #ff9800; }
+  // Nouveaux types
+  &.block   { background: #78909c; }
+  &.punch_w { background: #4dd0e1; }
+  &.punch_s { background: #0097a7; }
+  &.kick_w  { background: #aed581; }
+  &.kick_m  { background: #ffca28; }
+  &.kick_s  { background: #ff7043; }
+  &.special { background: #b39ddb; }
+  &.ko      { background: #ffeb3b; }
   &:hover { filter: brightness(1.6) drop-shadow(0 0 4px currentColor); top: 2px; bottom: 2px; }
 }
 .time-cursor {

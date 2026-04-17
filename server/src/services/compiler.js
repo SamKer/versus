@@ -38,11 +38,11 @@ function renderFrame (ctx, time, project, w, h) {
 
   if (!project.players?.length) return
 
-  // Compute HP
+  // Compute HP — tous les types de hits (block = chip damage), ko = mort directe
   const hp = {}
   project.players.forEach(p => { hp[p.id] = 100 })
   ;(project.events || [])
-    .filter(e => e.time <= time && e.type === 'hit')
+    .filter(e => e.time <= time && e.type !== 'ko')
     .sort((a, b) => a.time - b.time)
     .forEach(e => { hp[e.target] = Math.max(0, (hp[e.target] ?? 100) - e.damage) })
   ;(project.events || [])
@@ -66,32 +66,22 @@ function drawHUD (ctx, W, H, players, hp) {
     const x      = isLeft ? MX : W - MX - BAR_W
     const fillW  = Math.floor(BAR_W * pct)
 
-    // Bordure noire
-    ctx.fillStyle = '#000'
+    // Bordure blanche
+    ctx.fillStyle = '#fff'
     ctx.fillRect(x - BORDER, MY - BORDER, BAR_W + BORDER * 2, BAR_H + BORDER * 2)
 
-    // Fond sombre
-    ctx.fillStyle = '#1a1a1a'
-    ctx.fillRect(x - 1, MY - 1, BAR_W + 2, BAR_H + 2)
-
-    // Zone vide
-    ctx.fillStyle = '#5a0000'
+    // Fond jaune (zone vide = vie perdue)
+    ctx.fillStyle = '#f5c800'
     ctx.fillRect(x, MY, BAR_W, BAR_H)
 
-    // Zone remplie
+    // Barre rouge (vie restante)
     if (fillW > 0) {
-      const fillColor = pct > 0.6 ? '#7ce830' : pct > 0.3 ? '#f5d000' : '#e01000'
       const fillX = isLeft ? x : x + BAR_W - fillW
-      ctx.fillStyle = fillColor
+      ctx.fillStyle = '#e01000'
       ctx.fillRect(fillX, MY, fillW, BAR_H)
       ctx.fillStyle = 'rgba(255,255,255,0.22)'
       ctx.fillRect(fillX, MY, fillW, Math.floor(BAR_H * 0.35))
     }
-
-    // Contour intérieur
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)'
-    ctx.lineWidth   = 1
-    ctx.strokeRect(x + 0.5, MY + 0.5, BAR_W - 1, BAR_H - 1)
 
     // Nom sous la barre (tronqué si trop long)
     ctx.save()

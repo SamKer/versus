@@ -101,8 +101,8 @@ Chaque personnage dispose d'une rangée de **7 boutons ronds façon manette** :
 
 | N° | Type | Icône | Couleur |
 |---|---|---|---|
-| 1 | Blocage | `shield` | Gris |
-| 2 | Coup de poing faible | `sports_mma` | Cyan clair |
+| 1 | Coup de poing faible | `sports_mma` | Cyan clair |
+| 2 | Coup de poing moyen | `sports_mma` | Cyan moyen |
 | 3 | Coup de poing fort | `fitness_center` | Cyan foncé |
 | 4 | Coup de pied faible | `directions_run` | Vert lime |
 | 5 | Coup de pied moyen | `sports_martial_arts` | Ambre |
@@ -129,22 +129,24 @@ Le recalcul s'effectue **automatiquement** à chaque ajout/suppression d'événe
 
 #### Hiérarchie des poids
 
+Poings et pieds sont **symétriques** — même poids à niveau équivalent :
+
 ```
-(2) = (4) = 2 × (1)
-(3) = (5) = 2 × (4)
-(6) = 2 × (5)
-(7) = 2 × (6)
+punch_w = kick_w = 2
+punch_m = kick_m = 4
+punch_s = kick_s = 8
+special = 16
 ```
 
 Tableau des poids :
 
 | N° | Type | Poids |
 |---|---|---:|
-| 1 | Blocage (chip damage) | **1** |
-| 2 | Coup de poing faible | **2** |
+| 1 | Coup de poing faible | **2** |
 | 4 | Coup de pied faible | **2** |
-| 3 | Coup de poing fort | **4** |
+| 2 | Coup de poing moyen | **4** |
 | 5 | Coup de pied moyen | **4** |
+| 3 | Coup de poing fort | **8** |
 | 6 | Coup de pied fort | **8** |
 | 7 | Coup spécial | **16** |
 
@@ -182,9 +184,9 @@ Barre horizontale affichant toute la durée de la vidéo.
 
 | Type | Couleur |
 |---|---|
-| Blocage | Gris bleu `#78909c` |
-| Poing faible | Cyan clair `#4dd0e1` |
-| Poing fort | Cyan foncé `#0097a7` |
+| Poing faible | Cyan clair `#80deea` |
+| Poing moyen | Cyan moyen `#26c6da` |
+| Poing fort | Cyan foncé `#00838f` |
 | Pied faible | Vert lime `#aed581` |
 | Pied moyen | Ambre `#ffca28` |
 | Pied fort | Orange `#ff7043` |

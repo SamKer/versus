@@ -314,26 +314,26 @@ function setSpeed (rate: number) {
 // ── Hit buttons ────────────────────────────────────────────────────────────────
 // 7 boutons façon manette, dans l'ordre : blocage, poing×2, pied×3, spécial
 const hitButtons = [
-  { type: 'block',   icon: 'shield',             color: 'grey-5',        label: '1 – Blocage' },
-  { type: 'punch_w', icon: 'sports_mma',          color: 'cyan-4',        label: '2 – Coup de poing faible' },
-  { type: 'punch_s', icon: 'fitness_center',      color: 'cyan-7',        label: '3 – Coup de poing fort' },
+  { type: 'punch_w', icon: 'sports_mma',          color: 'cyan-3',        label: '1 – Coup de poing faible' },
+  { type: 'punch_m', icon: 'sports_mma',          color: 'cyan-6',        label: '2 – Coup de poing moyen' },
+  { type: 'punch_s', icon: 'fitness_center',      color: 'cyan-9',        label: '3 – Coup de poing fort' },
   { type: 'kick_w',  icon: 'directions_run',      color: 'lime-5',        label: '4 – Coup de pied faible' },
   { type: 'kick_m',  icon: 'sports_martial_arts', color: 'amber-5',       label: '5 – Coup de pied moyen' },
   { type: 'kick_s',  icon: 'sports_martial_arts', color: 'deep-orange-5', label: '6 – Coup de pied fort' },
   { type: 'special', icon: 'bolt',                color: 'deep-purple-3', label: '7 – Coup spécial' },
 ]
 
-// Poids des dégâts (hiérarchie complète) :
-//   (2)=(4)=2×(1)  ;  (3)=(5)=2×(4)  ;  (6)=2×(5)  ;  (7)=2×(6)
-//   block(1)=1, punch_w(2)=kick_w(4)=2, punch_s(3)=kick_m(5)=4, kick_s(6)=8, special(7)=16
+// Poids des dégâts — symétrie poings / pieds :
+//   punch_w = kick_w = 2  ;  punch_m = kick_m = 4  ;  punch_s = kick_s = 8  ;  special = 16
 const HIT_WEIGHTS: Record<string, number> = {
-  block:   1,
   punch_w: 2,
-  punch_s: 4,
+  punch_m: 4,
+  punch_s: 8,
   kick_w:  2,
   kick_m:  4,
   kick_s:  8,
   special: 16,
+  block:   1,   // rétro-compatibilité
   hit:     2,   // rétro-compatibilité
 }
 
@@ -635,14 +635,15 @@ function removeEvent (id: string) {
 
 function eventIcon (type: string) {
   const map: Record<string, string> = {
-    block:   'shield',
     punch_w: 'sports_mma',
+    punch_m: 'sports_mma',
     punch_s: 'fitness_center',
     kick_w:  'directions_run',
     kick_m:  'sports_martial_arts',
     kick_s:  'sports_martial_arts',
     special: 'bolt',
     ko:      'star',
+    block:   'shield',
     hit:     'sports_martial_arts',
   }
   return map[type] ?? 'circle'
@@ -650,14 +651,15 @@ function eventIcon (type: string) {
 
 function eventColor (type: string) {
   const map: Record<string, string> = {
-    block:   'grey-5',
-    punch_w: 'cyan-4',
-    punch_s: 'cyan-7',
+    punch_w: 'cyan-3',
+    punch_m: 'cyan-6',
+    punch_s: 'cyan-9',
     kick_w:  'lime-5',
     kick_m:  'amber-5',
     kick_s:  'deep-orange-5',
     special: 'deep-purple-3',
     ko:      'yellow',
+    block:   'grey-5',
     hit:     'orange',
   }
   return map[type] ?? 'grey'
@@ -665,14 +667,15 @@ function eventColor (type: string) {
 
 function eventLabel (type: string) {
   const map: Record<string, string> = {
-    block:   'Blocage',
     punch_w: 'Poing faible',
+    punch_m: 'Poing moyen',
     punch_s: 'Poing fort',
     kick_w:  'Pied faible',
     kick_m:  'Pied moyen',
     kick_s:  'Pied fort',
     special: 'Coup spécial',
     ko:      'KO',
+    block:   'Blocage',
     hit:     'Hit',
   }
   return map[type] ?? type
@@ -830,17 +833,17 @@ watch(videoSrc, async () => {
   border-radius: 3px;
   transform: translateX(-50%);
   cursor: pointer;
-  // Rétro-compat
-  &.hit     { background: #ff9800; }
-  // Nouveaux types
-  &.block   { background: #78909c; }
-  &.punch_w { background: #4dd0e1; }
-  &.punch_s { background: #0097a7; }
+  &.punch_w { background: #80deea; }
+  &.punch_m { background: #26c6da; }
+  &.punch_s { background: #00838f; }
   &.kick_w  { background: #aed581; }
   &.kick_m  { background: #ffca28; }
   &.kick_s  { background: #ff7043; }
   &.special { background: #b39ddb; }
   &.ko      { background: #ffeb3b; }
+  // Rétro-compat
+  &.block   { background: #78909c; }
+  &.hit     { background: #ff9800; }
   &:hover { filter: brightness(1.6) drop-shadow(0 0 4px currentColor); top: 2px; bottom: 2px; }
 }
 .time-cursor {

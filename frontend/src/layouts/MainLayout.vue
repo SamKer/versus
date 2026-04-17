@@ -14,6 +14,7 @@
           <q-btn flat icon="admin_panel_settings" :label="$q.screen.gt.xs ? 'Admin' : ''" to="/admin" class="q-mr-xs">
             <q-badge v-if="unreadCount > 0" color="negative" floating rounded>{{ unreadCount }}</q-badge>
           </q-btn>
+          <q-btn flat icon="menu_book" :label="$q.screen.gt.xs ? 'Doc' : ''" href="/docs" target="_blank" class="q-mr-xs" title="Documentation" />
           <q-btn flat round icon="logout" @click="authStore.logout()" title="Déconnexion" />
         </template>
         <!-- Non connecté -->

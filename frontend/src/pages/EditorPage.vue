@@ -54,6 +54,16 @@
             <q-btn flat dense round icon="chevron_left" color="grey" @click="stepFrame(-1)" :disable="!videoSrc" title="Image précédente" />
             <q-btn flat dense round icon="chevron_right" color="grey" @click="stepFrame(1)" :disable="!videoSrc" title="Image suivante" />
           </q-btn-group>
+          <q-btn-group flat dense class="q-mr-xs">
+            <q-btn
+              v-for="spd in speedOptions" :key="spd"
+              flat dense no-caps size="sm"
+              :label="spd + 'x'"
+              :color="playbackRate === spd ? 'primary' : 'grey'"
+              :disable="!videoSrc"
+              @click="setSpeed(spd)"
+            />
+          </q-btn-group>
           <q-btn-group flat dense>
             <q-btn flat dense no-caps icon="content_cut" label="Début coupe" color="orange" @click="setCutIn" :disable="!videoSrc" />
             <q-btn flat dense no-caps icon="content_cut" label="Fin coupe" color="orange" @click="setCutOut" :disable="!cutIn || !videoSrc" />
@@ -292,6 +302,15 @@ let   pollTimer    = 0
 // ── Saving ─────────────────────────────────────────────────────────────────────
 const saving = ref(false)
 
+// ── Playback speed ─────────────────────────────────────────────────────────────
+const speedOptions  = [0.25, 0.5, 1]
+const playbackRate  = ref(1)
+
+function setSpeed (rate: number) {
+  playbackRate.value = rate
+  if (videoEl.value) videoEl.value.playbackRate = rate
+}
+
 // ── Hit buttons ────────────────────────────────────────────────────────────────
 // 7 boutons façon manette, dans l'ordre : blocage, poing×2, pied×3, spécial
 const hitButtons = [
@@ -367,6 +386,7 @@ async function loadProject () {
 // ── Video events ───────────────────────────────────────────────────────────────
 function onVideoLoaded () {
   duration.value = videoEl.value?.duration ?? 0
+  if (videoEl.value) videoEl.value.playbackRate = playbackRate.value
   resizeCanvas()
 }
 

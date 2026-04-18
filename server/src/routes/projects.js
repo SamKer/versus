@@ -66,8 +66,12 @@ router.post('/:fightId/export', auth, async (req, res) => {
     const project = await Project.findOneAndUpdate(
       { fightId: req.params.fightId },
       { $set: { exportStatus: 'processing', exportError: null } },
-      { upsert: true, new: true }
+      { upsert: false, new: true }   // pas d'upsert : le projet doit déjà exister
     )
+
+    if (!project) {
+      return res.status(404).json({ error: 'Projet introuvable — sauvegardez d\'abord.' })
+    }
 
     const outputDir  = path.join(dataPath, 'projects', req.params.fightId)
     const outputPath = path.join(outputDir, 'exported.mp4')
@@ -82,12 +86,12 @@ router.post('/:fightId/export', auth, async (req, res) => {
       .then(async () => {
         exportProgress.set(fightId, 100)
         const exportPath = `/media/projects/${fightId}/exported.mp4`
-        await Project.updateOne({ fightId }, { exportStatus: 'done', exportPath })
+        await Project.updateOne({ fightId }, { $set: { exportStatus: 'done', exportPath } })
         console.log(`✓ Export done: ${outputPath}`)
       })
       .catch(async err => {
         exportProgress.delete(fightId)
-        await Project.updateOne({ fightId }, { exportStatus: 'error', exportError: err.message })
+        await Project.updateOne({ fightId }, { $set: { exportStatus: 'error', exportError: err.message } })
         console.error('✗ Export error:', err.message)
       })
 

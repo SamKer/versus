@@ -300,7 +300,8 @@ const exportProgress = ref(0)
 let   pollTimer    = 0
 
 // ── Saving ─────────────────────────────────────────────────────────────────────
-const saving = ref(false)
+const saving  = ref(false)
+let   loading = false   // empêche recomputeDamages pendant le chargement initial
 
 // ── Playback speed ─────────────────────────────────────────────────────────────
 const speedOptions  = [0.25, 0.5, 1]
@@ -358,6 +359,7 @@ async function loadFight () {
 }
 
 async function loadProject () {
+  loading = true
   try {
     const { data } = await api.get(`/api/projects/${fightId}`)
     if (data) {
@@ -380,7 +382,9 @@ async function loadProject () {
         })
       })
     }
-  } catch { /* ignore */ }
+  } catch { /* ignore */ } finally {
+    loading = false
+  }
 }
 
 // ── Video events ───────────────────────────────────────────────────────────────
@@ -578,6 +582,7 @@ function playerName (id: string) {
 // ── Calcul automatique des dégâts ──────────────────────────────────────────────
 // totalDamage = 100 - finalHp, réparti proportionnellement selon HIT_WEIGHTS
 function recomputeDamages () {
+  if (loading) return
   project.players.forEach(player => {
     const totalDamage = 100 - (player.finalHp ?? 0)
     const hitEvents   = project.events.filter(e =>

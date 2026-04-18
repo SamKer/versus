@@ -8,7 +8,9 @@
         {{ fight?.title || fight?.movieTitle || 'Éditeur' }}
       </div>
       <q-space />
-      <q-btn flat dense no-caps icon="save" label="Sauvegarder" color="primary" class="q-mr-sm" :loading="saving" @click="saveProject" />
+      <q-btn flat dense no-caps icon="save" label="Sauvegarder" :color="isDirty ? 'warning' : 'primary'" class="q-mr-sm" :loading="saving" @click="saveProject">
+        <q-badge v-if="isDirty" color="negative" floating rounded />
+      </q-btn>
       <q-btn flat dense no-caps icon="movie_creation" label="Compiler" color="positive"
         :loading="exportStatus === 'processing'"
         :disable="exportStatus === 'processing'"
@@ -299,9 +301,17 @@ const exportError    = ref('')
 const exportProgress = ref(0)
 let   pollTimer    = 0
 
-// ── Saving ─────────────────────────────────────────────────────────────────────
+// ── Saving / dirty state ───────────────────────────────────────────────────────
 const saving  = ref(false)
-let   loading = false   // empêche recomputeDamages pendant le chargement initial
+const isDirty = ref(false)
+let   loading = false         // empêche recomputeDamages pendant le chargement initial
+let   autoSaveTimer = 0       // debounce auto-save
+
+function scheduleAutoSave () {
+  isDirty.value = true
+  clearTimeout(autoSaveTimer)
+  autoSaveTimer = window.setTimeout(() => saveProject(true), 3000)
+}
 
 // ── Playback speed ─────────────────────────────────────────────────────────────
 const speedOptions  = [0.25, 0.5, 1]
@@ -382,8 +392,11 @@ async function loadProject () {
         })
       })
     }
+    // Attendre que Vue ait flushé les watchers avant de libérer le guard
+    await nextTick()
   } catch { /* ignore */ } finally {
     loading = false
+    isDirty.value = false   // état propre après chargement
   }
 }
 
@@ -551,10 +564,12 @@ function setCutOut () {
   project.cuts.sort((a, b) => a.start - b.start)
   cutIn.value = null
   $q.notify({ message: 'Coupe ajoutée', color: 'orange', timeout: 1200 })
+  scheduleAutoSave()
 }
 
 function removeCut (i: number) {
   project.cuts.splice(i, 1)
+  scheduleAutoSave()
 }
 
 // ── Players ────────────────────────────────────────────────────────────────────
@@ -620,6 +635,7 @@ function addHitEvent (targetId: string, type: string) {
     damage: 0
   })
   recomputeDamages()
+  scheduleAutoSave()
 }
 
 function addKoEvent (targetId: string) {
@@ -630,12 +646,14 @@ function addKoEvent (targetId: string) {
     target: targetId,
     damage: 0
   })
+  scheduleAutoSave()
 }
 
 function removeEvent (id: string) {
   const i = project.events.findIndex(e => e.id === id)
   if (i >= 0) project.events.splice(i, 1)
   recomputeDamages()
+  scheduleAutoSave()
 }
 
 function eventIcon (type: string) {
@@ -687,7 +705,7 @@ function eventLabel (type: string) {
 }
 
 // ── Save / Export ──────────────────────────────────────────────────────────────
-async function saveProject () {
+async function saveProject (silent = false) {
   recomputeDamages()
   saving.value = true
   try {
@@ -696,9 +714,10 @@ async function saveProject () {
       events:  project.events,
       cuts:    project.cuts
     })
-    $q.notify({ type: 'positive', message: 'Projet sauvegardé', timeout: 1500 })
+    isDirty.value = false
+    if (!silent) $q.notify({ type: 'positive', message: 'Projet sauvegardé', timeout: 1500 })
   } catch {
-    $q.notify({ type: 'negative', message: 'Erreur lors de la sauvegarde' })
+    if (!silent) $q.notify({ type: 'negative', message: 'Erreur lors de la sauvegarde' })
   } finally {
     saving.value = false
   }

@@ -8,7 +8,7 @@
         {{ fight?.title || fight?.movieTitle || 'Éditeur' }}
       </div>
       <q-space />
-      <q-btn flat dense no-caps icon="save" label="Sauvegarder" :color="isDirty ? 'warning' : 'primary'" class="q-mr-sm" :loading="saving" @click="saveProject">
+      <q-btn flat dense no-caps icon="save" label="Sauvegarder" :color="isDirty ? 'warning' : 'primary'" class="q-mr-sm" :loading="saving" @click="() => saveProject()">
         <q-badge v-if="isDirty" color="negative" floating rounded />
       </q-btn>
       <q-btn flat dense no-caps icon="movie_creation" label="Compiler" color="positive"
@@ -327,6 +327,18 @@ function setSpeed (rate: number) {
   if (videoEl.value) videoEl.value.playbackRate = rate
 }
 
+// ── Elapsed output time computation ────────────────────────────────────────────
+function computeElapsed (videoTime: number, cuts: typeof project.cuts): number {
+  if (!cuts || cuts.length === 0) return videoTime
+  let acc = 0
+  for (const cut of cuts) {
+    if (videoTime < cut.start) return -1
+    if (videoTime <= cut.end) return acc + (videoTime - cut.start)
+    acc += cut.end - cut.start
+  }
+  return -1
+}
+
 // ── Hit buttons ────────────────────────────────────────────────────────────────
 // 7 boutons façon manette, dans l'ordre : blocage, poing×2, pied×3, spécial
 const hitButtons = [
@@ -437,7 +449,10 @@ function drawSF2Bars (
   players: typeof project.players,
   hp: Record<string, number>,
   shTimers?: Record<string, number>,
-  now?: number
+  now?: number,
+  elapsed?: number,
+  events?: typeof project.events,
+  videoTime?: number
 ) {
   const BORDER  = 2
   const BAR_H   = Math.max(14, Math.floor(H * 0.028))
@@ -515,6 +530,83 @@ function drawSF2Bars (
   ctx.strokeText('Versus', 0, 0)
   ctx.fillText('Versus', 0, 0)
   ctx.restore()
+
+  const vsY  = MY + Math.floor(BAR_H / 2)
+  const evts = events ?? []
+  const vt   = videoTime ?? 0
+
+  // ── K.O. sous "Versus" ──────────────────────────────────────────────────
+  const koEvts = evts.filter(e => e.type === 'ko' && e.time <= vt)
+  if (koEvts.length > 0) {
+    const koTime  = Math.max(...koEvts.map(e => e.time))
+    const koAlpha = Math.min(1, (vt - koTime) / 0.3)
+    const KO_SZ  = Math.max(20, Math.floor(H * 0.052))
+    const koY    = vsY + VS_SZ + KO_SZ * 0.6
+    ctx.save()
+    ctx.globalAlpha  = koAlpha
+    ctx.font         = `bold italic ${KO_SZ}px serif`
+    ctx.textAlign    = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor  = '#000'
+    ctx.shadowBlur   = 12
+    ctx.lineWidth    = Math.max(2, Math.floor(KO_SZ * 0.1))
+    ctx.strokeStyle  = '#000'
+    ctx.strokeText('K.O.', W / 2, koY)
+    ctx.fillStyle = '#ff2200'
+    ctx.fillText('K.O.', W / 2, koY)
+    ctx.restore()
+  }
+
+  // ── SPECIAL HIT sous la barre de l'attaquant ────────────────────────────
+  const recentSpecial = evts
+    .filter(e => e.type === 'special' && e.time <= vt && (vt - e.time) < 1.5)
+    .sort((a, b) => b.time - a.time)[0]
+  if (recentSpecial) {
+    const attacker = players.find(p => p.id !== recentSpecial.target)
+    if (attacker) {
+      const opacity = Math.max(0, 1 - (vt - recentSpecial.time) / 1.5)
+      const isLeft  = attacker.side === 'left'
+      const x       = isLeft ? MX : W - MX - BAR_W
+      const textY   = MY + BAR_H + NAME_SZ * 2 + 10
+      const SP_SZ   = Math.max(10, Math.floor(H * 0.02))
+      ctx.save()
+      ctx.globalAlpha  = opacity
+      ctx.font         = `bold ${SP_SZ}px monospace`
+      ctx.textAlign    = isLeft ? 'left' : 'right'
+      ctx.textBaseline = 'top'
+      ctx.shadowColor  = '#000'
+      ctx.shadowBlur   = 6
+      ctx.fillStyle    = '#ce93d8'
+      ctx.fillText('★ SPECIAL HIT', isLeft ? x : x + BAR_W, textY)
+      ctx.restore()
+    }
+  }
+
+  // ── READY / FIGHT! ────────────────────────────────────────────────────────
+  const el = elapsed ?? -1
+  if (el >= 0 && el < 2.0) {
+    const isReady = el < 1.0
+    const phase   = isReady ? el : el - 1.0
+    let   alpha   = phase < 0.1 ? phase / 0.1 : phase > 0.8 ? (1.0 - phase) / 0.2 : 1.0
+    alpha = Math.max(0, Math.min(1, alpha))
+    const text    = isReady ? 'READY' : 'FIGHT!'
+    const color   = isReady ? '#ffdd00' : '#ff2200'
+    const RF_SZ   = Math.max(48, Math.floor(H * 0.12))
+    const centerY = Math.floor(H * 0.38)
+    ctx.save()
+    ctx.globalAlpha  = alpha
+    ctx.font         = `bold italic ${RF_SZ}px serif`
+    ctx.textAlign    = 'center'
+    ctx.textBaseline = 'middle'
+    ctx.shadowColor  = '#000'
+    ctx.shadowBlur   = 20
+    ctx.lineWidth    = Math.max(3, Math.floor(RF_SZ * 0.08))
+    ctx.strokeStyle  = '#000'
+    ctx.strokeText(text, W / 2, centerY)
+    ctx.fillStyle = color
+    ctx.fillText(text, W / 2, centerY)
+    ctx.restore()
+  }
 }
 
 // ── Canvas overlay ─────────────────────────────────────────────────────────────
@@ -563,9 +655,10 @@ function drawOverlay () {
     }
   })
 
-  const W = canvas.width
-  const H = canvas.height
-  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now)
+  const W       = canvas.width
+  const H       = canvas.height
+  const elapsed = computeElapsed(t, project.cuts)
+  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now, elapsed, project.events, t)
 }
 
 // ── Timeline ───────────────────────────────────────────────────────────────────

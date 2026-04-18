@@ -307,6 +307,11 @@ const isDirty = ref(false)
 let   loading = false         // empêche recomputeDamages pendant le chargement initial
 let   autoSaveTimer = 0       // debounce auto-save
 
+// ── Animation HP (lerp + shake) ────────────────────────────────────────────────
+const animatedHp: Record<string, number> = {}
+const shakeTimers: Record<string, number> = {}
+let   lastTime = -999
+
 function scheduleAutoSave () {
   isDirty.value = true
   clearTimeout(autoSaveTimer)
@@ -381,23 +386,25 @@ async function loadProject () {
       exportProgress.value = 0
       if (data.exportStatus === 'processing') pollExport()
     }
-    if (!project.players.length && fight.value?.actors?.length) {
-      fight.value.actors.slice(0, 2).forEach((actor: any, i: number) => {
-        project.players.push({
-          id:      crypto.randomUUID(),
-          name:    actor.character || actor.name,
-          color:   i === 0 ? '#00e676' : '#e53935',
-          side:    i === 0 ? 'left' : 'right',
-          finalHp: 0
-        })
+  } catch { /* ignore */ }
+
+  // Auto-population hors du try : s'exécute même si l'appel API a échoué
+  if (!project.players.length && fight.value?.actors?.length) {
+    fight.value.actors.slice(0, 2).forEach((actor: any, i: number) => {
+      project.players.push({
+        id:      crypto.randomUUID(),
+        name:    actor.character || actor.name,
+        color:   i === 0 ? '#00e676' : '#e53935',
+        side:    i === 0 ? 'left' : 'right',
+        finalHp: 0
       })
-    }
-    // Attendre que Vue ait flushé les watchers avant de libérer le guard
-    await nextTick()
-  } catch { /* ignore */ } finally {
-    loading = false
-    isDirty.value = false   // état propre après chargement
+    })
   }
+
+  // Attendre que Vue ait flushé les watchers avant de libérer le guard
+  await nextTick()
+  loading = false
+  isDirty.value = false   // état propre après chargement
 }
 
 // ── Video events ───────────────────────────────────────────────────────────────
@@ -428,7 +435,9 @@ function drawSF2Bars (
   ctx: CanvasRenderingContext2D,
   W: number, H: number,
   players: typeof project.players,
-  hp: Record<string, number>
+  hp: Record<string, number>,
+  shTimers?: Record<string, number>,
+  now?: number
 ) {
   const BORDER  = 2
   const BAR_H   = Math.max(14, Math.floor(H * 0.028))
@@ -442,6 +451,17 @@ function drawSF2Bars (
     const isLeft = player.side === 'left'
     const x      = isLeft ? MX : W - MX - BAR_W
     const fillW  = Math.floor(BAR_W * pct)
+
+    // Vibration horizontale (shake) lors d'un coup
+    let shakeX = 0
+    if (shTimers && now !== undefined && shTimers[player.id] !== undefined) {
+      const elapsed = (now - shTimers[player.id]) / 1000
+      if (elapsed < 0.4)
+        shakeX = Math.round(6 * Math.sin(elapsed * 50) * Math.exp(-elapsed * 8))
+    }
+
+    ctx.save()
+    ctx.translate(shakeX, 0)
 
     // Bordure blanche
     ctx.fillStyle = '#fff'
@@ -475,6 +495,8 @@ function drawSF2Bars (
     ctx.textAlign     = isLeft ? 'left' : 'right'
     ctx.fillText(name, isLeft ? x : x + BAR_W, MY + BAR_H + NAME_SZ + 2)
     ctx.restore()
+
+    ctx.restore()   // restore shake translation
   })
 
   // "Versus" centré, style script, légèrement incliné
@@ -511,22 +533,39 @@ function drawOverlay () {
 
   if (!project.players.length) return
 
-  const t = currentTime.value
+  const t   = currentTime.value
+  const now = performance.now()
 
-  // Calcul HP en temps réel (tous les types sauf ko ; block = chip damage)
-  const hp: Record<string, number> = {}
-  project.players.forEach(p => { hp[p.id] = 100 })
+  // Détecte un seek (saut > 1s) → snap instantané, pas de lerp
+  const seeked = Math.abs(t - lastTime) > 1
+  lastTime = t
+
+  // HP réelle au timecode courant
+  const actualHp: Record<string, number> = {}
+  project.players.forEach(p => { actualHp[p.id] = 100 })
   project.events
     .filter(e => e.time <= t && e.type !== 'ko')
     .sort((a, b) => a.time - b.time)
-    .forEach(e => { hp[e.target] = Math.max(0, (hp[e.target] ?? 100) - e.damage) })
+    .forEach(e => { actualHp[e.target] = Math.max(0, (actualHp[e.target] ?? 100) - e.damage) })
   project.events
     .filter(e => e.time <= t && e.type === 'ko')
-    .forEach(e => { hp[e.target] = 0 })
+    .forEach(e => { actualHp[e.target] = 0 })
+
+  // Lerp animatedHp → actualHp ; déclenche shake si HP diminue
+  project.players.forEach(p => {
+    const actual = actualHp[p.id]
+    if (seeked) {
+      animatedHp[p.id] = actual
+    } else {
+      const prev = animatedHp[p.id] ?? actual
+      if (prev - actual > 0.5) shakeTimers[p.id] = now
+      animatedHp[p.id] = prev + (actual - prev) * 0.12
+    }
+  })
 
   const W = canvas.width
   const H = canvas.height
-  drawSF2Bars(ctx, W, H, project.players, hp)
+  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now)
 }
 
 // ── Timeline ───────────────────────────────────────────────────────────────────
@@ -626,24 +665,30 @@ const sortedEvents = computed(() =>
   [...project.events].sort((a, b) => a.time - b.time)
 )
 
-function addHitEvent (targetId: string, type: string) {
+function addHitEvent (attackerId: string, type: string) {
+  // A frappe → B reçoit
+  const target = project.players.find(p => p.id !== attackerId)
+  if (!target) return
   project.events.push({
     id:     crypto.randomUUID(),
     time:   Math.round(currentTime.value * 100) / 100,
     type,
-    target: targetId,
+    target: target.id,
     damage: 0
   })
   recomputeDamages()
   scheduleAutoSave()
 }
 
-function addKoEvent (targetId: string) {
+function addKoEvent (attackerId: string) {
+  // A KO → B reçoit
+  const target = project.players.find(p => p.id !== attackerId)
+  if (!target) return
   project.events.push({
     id:     crypto.randomUUID(),
     time:   Math.round(currentTime.value * 100) / 100,
     type:   'ko',
-    target: targetId,
+    target: target.id,
     damage: 0
   })
   scheduleAutoSave()

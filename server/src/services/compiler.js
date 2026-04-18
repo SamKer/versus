@@ -32,27 +32,59 @@ function getVideoInfo (videoPath) {
   })
 }
 
+// ── Animation helpers ─────────────────────────────────────────────────────────
+const ANIM_DURATION = 0.25   // secondes pour la transition HP
+const SHAKE_DURATION = 0.4   // secondes de vibration
+
+function getAnimatedHp (time, events, playerId) {
+  let hp = 100
+  const hits = (events || [])
+    .filter(e => e.target === playerId && e.type !== 'ko' && e.time <= time)
+    .sort((a, b) => a.time - b.time)
+  for (const e of hits) {
+    const progress = Math.min(1, (time - e.time) / ANIM_DURATION)
+    hp = Math.max(0, hp - e.damage * progress)
+  }
+  // KO : fade vers 0 sur ANIM_DURATION
+  const kos = (events || []).filter(e => e.target === playerId && e.type === 'ko' && e.time <= time)
+  if (kos.length > 0) {
+    const koTime = Math.max(...kos.map(k => k.time))
+    const progress = Math.min(1, (time - koTime) / ANIM_DURATION)
+    hp = hp * (1 - progress)
+  }
+  return Math.max(0, hp)
+}
+
+function getShakeOffset (time, events, playerId) {
+  let shakeX = 0
+  const recent = (events || []).filter(e =>
+    e.target === playerId && e.time <= time && (time - e.time) < SHAKE_DURATION
+  )
+  for (const e of recent) {
+    const elapsed = time - e.time
+    shakeX += 5 * Math.sin(elapsed * 50) * Math.exp(-elapsed * 8)
+  }
+  return Math.round(shakeX)
+}
+
 // ── SF2 health bar renderer ───────────────────────────────────────────────────
 function renderFrame (ctx, time, project, w, h) {
   ctx.clearRect(0, 0, w, h)
 
   if (!project.players?.length) return
 
-  // Compute HP — tous les types de hits (block = chip damage), ko = mort directe
+  // HP animée (transition fluide) + vibration
   const hp = {}
-  project.players.forEach(p => { hp[p.id] = 100 })
-  ;(project.events || [])
-    .filter(e => e.time <= time && e.type !== 'ko')
-    .sort((a, b) => a.time - b.time)
-    .forEach(e => { hp[e.target] = Math.max(0, (hp[e.target] ?? 100) - e.damage) })
-  ;(project.events || [])
-    .filter(e => e.time <= time && e.type === 'ko')
-    .forEach(e => { hp[e.target] = 0 })
+  const shake = {}
+  project.players.forEach(p => {
+    hp[p.id]    = getAnimatedHp(time, project.events, p.id)
+    shake[p.id] = getShakeOffset(time, project.events, p.id)
+  })
 
-  drawHUD(ctx, w, h, project.players, hp)
+  drawHUD(ctx, w, h, project.players, hp, shake)
 }
 
-function drawHUD (ctx, W, H, players, hp) {
+function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}) {
   const BORDER  = 2
   const BAR_H   = Math.max(14, Math.floor(H * 0.028))
   const BAR_W   = Math.floor(W * 0.42)
@@ -65,6 +97,10 @@ function drawHUD (ctx, W, H, players, hp) {
     const isLeft = player.side === 'left'
     const x      = isLeft ? MX : W - MX - BAR_W
     const fillW  = Math.floor(BAR_W * pct)
+    const shakeX = shakeOffsets[player.id] || 0
+
+    ctx.save()
+    ctx.translate(shakeX, 0)
 
     // Bordure blanche
     ctx.fillStyle = '#fff'
@@ -98,6 +134,8 @@ function drawHUD (ctx, W, H, players, hp) {
     ctx.textAlign     = isLeft ? 'left' : 'right'
     ctx.fillText(name, isLeft ? x : x + BAR_W, MY + BAR_H + NAME_SZ + 2)
     ctx.restore()
+
+    ctx.restore()   // restore shake translation
   })
 
   // "Versus" centré, style script, légèrement incliné
@@ -120,6 +158,14 @@ function drawHUD (ctx, W, H, players, hp) {
 
 // ── Main compiler ─────────────────────────────────────────────────────────────
 async function compileProject (project, videoPath, outputPath, onProgress) {
+  // Debug: vérifier l'association players ↔ events
+  console.log('[compiler] Players:')
+  ;(project.players || []).forEach(p => console.log(`  [${p.side}] ${p.name} → id=${p.id}`))
+  console.log('[compiler] Events (target = qui reçoit le coup):')
+  ;(project.events || []).slice(0, 10).forEach(e => {
+    const tgt = (project.players || []).find(p => p.id === e.target)
+    console.log(`  t=${e.time.toFixed(2)}s  type=${e.type}  dmg=${e.damage}  target=${tgt?.name ?? '???'} (${e.target.slice(0,8)})`)
+  })
   const { width, height, fps, duration } = await getVideoInfo(videoPath)
 
   const cuts = (project.cuts?.length)

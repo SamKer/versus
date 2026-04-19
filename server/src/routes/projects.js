@@ -37,10 +37,10 @@ router.get('/:fightId', auth, async (req, res) => {
 // ── PUT /api/projects/:fightId ─────────────────────────────────────────────
 router.put('/:fightId', auth, async (req, res) => {
   try {
-    const { players, events, cuts } = req.body
+    const { players, events, cuts, outcome } = req.body
     const project = await Project.findOneAndUpdate(
       { fightId: req.params.fightId },
-      { $set: { players, events, cuts } },
+      { $set: { players, events, cuts, outcome: outcome ?? null } },
       { upsert: true, new: true }
     )
     res.json(project)

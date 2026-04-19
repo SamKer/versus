@@ -30,6 +30,7 @@ const projectSchema = new mongoose.Schema({
   players:      [playerSchema],
   events:       [eventSchema],
   cuts:         [cutSchema],
+  outcome:      { type: String, enum: ['ko', 'draw'], default: null },
   exportStatus: { type: String, enum: ['idle', 'processing', 'done', 'error'], default: 'idle' },
   exportError:  String,
   exportPath:   String

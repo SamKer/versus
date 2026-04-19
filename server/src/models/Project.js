@@ -13,10 +13,10 @@ const eventSchema = new mongoose.Schema({
   time:   { type: Number, required: true },
   type:   {
     type: String,
-    enum: ['punch_w', 'punch_m', 'punch_s', 'kick_w', 'kick_m', 'kick_s', 'special', 'ko', 'block', 'hit'],
+    enum: ['punch_w', 'punch_m', 'punch_s', 'kick_w', 'kick_m', 'kick_s', 'special', 'ko', 'block', 'hit', 'ready', 'lifebar'],
     default: 'punch_w'
   },
-  target: { type: String, required: true },
+  target: { type: String, default: '' },
   damage: { type: Number, default: 0 }
 }, { _id: false })
 

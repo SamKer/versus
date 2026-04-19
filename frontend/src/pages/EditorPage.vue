@@ -145,6 +145,7 @@
             <div class="row items-center q-mb-xs">
               <div class="text-caption text-bold text-grey-4">PERSONNAGES</div>
               <q-space />
+              <q-btn flat dense round icon="swap_horiz" size="sm" color="grey" title="Inverser A & B" @click="swapPlayers" :disable="project.players.length !== 2" class="q-mr-xs" />
               <q-btn flat dense round icon="add" size="sm" color="primary" @click="addPlayer" :disable="project.players.length >= 2" />
             </div>
             <div v-for="(player, i) in project.players" :key="player.id" class="q-mb-sm">
@@ -175,6 +176,31 @@
             </div>
             <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
               Aucun personnage
+            </div>
+          </q-card-section>
+        </q-card>
+
+        <!-- Marqueurs HUD globaux (lifebar + ready) -->
+        <q-card dark flat bordered>
+          <q-card-section class="q-pa-sm">
+            <div class="text-caption text-bold text-grey-4 q-mb-sm">MARQUEURS HUD</div>
+
+            <!-- LifeBar -->
+            <div class="row items-center q-mb-xs">
+              <q-icon name="favorite" color="yellow-6" size="14px" class="q-mr-xs" />
+              <span class="text-caption text-grey-4 col">Barres de vie</span>
+              <span v-if="lifebarEvent" class="text-caption text-mono text-yellow-6 q-mr-xs">{{ fmtTime(lifebarEvent.time) }}</span>
+              <q-btn v-if="lifebarEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(lifebarEvent.id)" />
+              <q-btn flat dense round icon="place" size="xs" color="yellow-6" @click="setGlobalEvent('lifebar')" :title="lifebarEvent ? 'Repositionner' : 'Poser ici'" />
+            </div>
+
+            <!-- Ready -->
+            <div class="row items-center">
+              <q-icon name="flag" color="green-5" size="14px" class="q-mr-xs" />
+              <span class="text-caption text-grey-4 col">READY</span>
+              <span v-if="readyEvent" class="text-caption text-mono text-green-5 q-mr-xs">{{ fmtTime(readyEvent.time) }}</span>
+              <q-btn v-if="readyEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(readyEvent.id)" />
+              <q-btn flat dense round icon="place" size="xs" color="green-5" @click="setGlobalEvent('ready')" :title="readyEvent ? 'Repositionner' : 'Poser ici'" />
             </div>
           </q-card-section>
         </q-card>
@@ -234,7 +260,7 @@
             >
               <q-icon :name="eventIcon(ev.type)" :color="eventColor(ev.type)" size="14px" class="q-mr-xs" />
               <span class="text-caption text-mono text-grey-4" style="width:42px">{{ fmtTime(ev.time) }}</span>
-              <span class="text-caption ellipsis col">{{ playerName(ev.target) }}</span>
+              <span class="text-caption ellipsis col">{{ ev.target ? playerName(ev.target) : eventLabel(ev.type) }}</span>
               <span v-if="ev.damage > 0" class="text-caption text-orange q-mx-xs">-{{ ev.damage.toFixed(1) }}</span>
               <q-btn flat dense round icon="close" size="xs" color="negative" @click.stop="removeEvent(ev.id)" />
             </div>
@@ -468,8 +494,11 @@ function drawSF2Bars (
   elapsed?: number,
   events?: typeof project.events,
   videoTime?: number,
-  outcome?: typeof project.outcome
+  outcome?: typeof project.outcome,
+  readyVideoTime?: number | null,
+  lifebarVideoTime?: number | null
 ) {
+  if (lifebarVideoTime != null && (videoTime ?? 0) < lifebarVideoTime) return
   const BORDER  = 2
   const BAR_H   = Math.max(14, Math.floor(H * 0.028))
   const BAR_W   = Math.floor(W * 0.42)
@@ -602,11 +631,13 @@ function drawSF2Bars (
     }
   }
 
-  // ── READY / FIGHT! — commence 1s après le début ──────────────────────────
-  const el = elapsed ?? -1
-  if (el >= 1.0 && el < 3.0) {
-    const isReady  = el < 2.0
-    const phase    = isReady ? el - 1.0 : el - 2.0
+  // ── READY / FIGHT! — à partir du marqueur ready (ou 1s après le début par défaut) ─
+  const el         = elapsed ?? -1
+  const vt2        = videoTime ?? 0
+  const readyPhase = readyVideoTime != null ? (vt2 - readyVideoTime) : (el - 1.0)
+  if (readyPhase >= 0 && readyPhase < 2.0) {
+    const isReady  = readyPhase < 1.0
+    const phase    = isReady ? readyPhase : readyPhase - 1.0
     let   alpha    = phase < 0.1 ? phase / 0.1 : phase > 0.8 ? (1.0 - phase) / 0.2 : 1.0
     alpha = Math.max(0, Math.min(1, alpha))
     const READY_SZ = Math.max(36, Math.floor(H * 0.07))
@@ -680,7 +711,12 @@ function drawOverlay () {
   const W       = canvas.width
   const H       = canvas.height
   const elapsed = computeElapsed(t, project.cuts)
-  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now, elapsed, project.events, t, project.outcome)
+  const readyEv   = project.events.find(e => e.type === 'ready')
+  const lifebarEv = project.events.find(e => e.type === 'lifebar')
+  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now, elapsed, project.events, t, project.outcome,
+    readyEv   ? readyEv.time   : null,
+    lifebarEv ? lifebarEv.time : null
+  )
 }
 
 // ── Timeline ───────────────────────────────────────────────────────────────────
@@ -744,6 +780,14 @@ function removePlayer (i: number) {
   project.events = project.events.filter(e => e.target !== id)
 }
 
+function swapPlayers () {
+  if (project.players.length !== 2) return
+  const [a, b] = project.players
+  ;[a.side, b.side] = [b.side, a.side]
+  project.players.reverse()
+  scheduleAutoSave()
+}
+
 function playerName (id: string) {
   return project.players.find(p => p.id === id)?.name ?? id
 }
@@ -774,6 +818,23 @@ watch(
   () => project.players.map(p => p.finalHp).join(','),
   () => recomputeDamages()
 )
+
+// ── Events globaux (marqueurs uniques) ────────────────────────────────────────
+const lifebarEvent = computed(() => project.events.find(e => e.type === 'lifebar') ?? null)
+const readyEvent   = computed(() => project.events.find(e => e.type === 'ready')   ?? null)
+
+function setGlobalEvent (type: 'ready' | 'lifebar') {
+  const i = project.events.findIndex(e => e.type === type)
+  if (i >= 0) project.events.splice(i, 1)
+  project.events.push({
+    id:     crypto.randomUUID(),
+    time:   Math.round(currentTime.value * 100) / 100,
+    type,
+    target: '',
+    damage: 0
+  })
+  scheduleAutoSave()
+}
 
 // ── Events ─────────────────────────────────────────────────────────────────────
 const sortedEvents = computed(() =>
@@ -828,6 +889,8 @@ function eventIcon (type: string) {
     ko:      'star',
     block:   'shield',
     hit:     'sports_martial_arts',
+    ready:   'flag',
+    lifebar: 'favorite',
   }
   return map[type] ?? 'circle'
 }
@@ -844,6 +907,8 @@ function eventColor (type: string) {
     ko:      'yellow',
     block:   'grey-5',
     hit:     'orange',
+    ready:   'green-5',
+    lifebar: 'yellow-6',
   }
   return map[type] ?? 'grey'
 }
@@ -860,6 +925,8 @@ function eventLabel (type: string) {
     ko:      'KO',
     block:   'Blocage',
     hit:     'Hit',
+    ready:   'READY',
+    lifebar: 'Barres de vie',
   }
   return map[type] ?? type
 }
@@ -1029,6 +1096,9 @@ watch(videoSrc, async () => {
   // Rétro-compat
   &.block   { background: #78909c; }
   &.hit     { background: #ff9800; }
+  // Marqueurs globaux — bande pleine hauteur
+  &.ready   { background: #66bb6a; top: 0; bottom: 0; width: 3px; border-radius: 0; }
+  &.lifebar { background: #ffd54f; top: 0; bottom: 0; width: 3px; border-radius: 0; }
   &:hover { filter: brightness(1.6) drop-shadow(0 0 4px currentColor); top: 2px; bottom: 2px; }
 }
 .time-cursor {

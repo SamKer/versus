@@ -271,6 +271,28 @@
                 </template>
               </q-input>
 
+              <!-- Type de combat & armes -->
+              <div class="text-caption text-grey q-mb-sm q-mt-md">TYPE DE COMBAT</div>
+              <div class="row items-center q-gutter-md q-mb-md">
+                <q-btn-toggle
+                  v-model="form.fightType"
+                  dense unelevated no-caps
+                  :options="[
+                    { label: '1 vs 1',   value: '1v1'   },
+                    { label: '1 vs All', value: '1vAll' },
+                    { label: '2 vs 2',   value: '2v2'   }
+                  ]"
+                  color="grey-8"
+                  toggle-color="primary"
+                />
+                <q-toggle
+                  v-model="form.armed"
+                  label="Avec arme(s)"
+                  dense dark
+                  color="orange"
+                />
+              </div>
+
               <q-separator dark class="q-mb-md" />
 
               <!-- Acteurs -->
@@ -1208,7 +1230,9 @@ async function analyze () {
       movieTmdbId:   movieData.movie?.tmdbId ?? undefined,
       moviePoster:   movieData.movie?.poster ?? undefined,
       choreographer: movieData.movie?.choreographer ?? '',
-      actors:        (movieData.cast ?? []).map((a: Actor) => ({ ...a, selected: false }))
+      actors:        (movieData.cast ?? []).map((a: Actor) => ({ ...a, selected: false })),
+      fightType:     '1v1',
+      armed:         false
     }
 
     suggestions.value = movieData.suggestions ?? []

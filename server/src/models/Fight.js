@@ -20,7 +20,9 @@ const fightSchema = new mongoose.Schema({
   title:         String,
   choreographer: String,
   actors:       [actorSchema],
-  videoPath:    String
+  videoPath:    String,
+  fightType:    { type: String, enum: ['1v1', '1vAll', '2v2'], default: '1v1' },
+  armed:        { type: Boolean, default: false }
 }, { timestamps: true })
 
 module.exports = mongoose.model('Fight', fightSchema)

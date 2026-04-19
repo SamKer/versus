@@ -25,6 +25,8 @@ export interface Fight {
   choreographer?: string
   actors: Actor[]
   videoPath?: string
+  fightType?: '1v1' | '1vAll' | '2v2'
+  armed?: boolean
   createdAt?: string
 }
 

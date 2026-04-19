@@ -233,7 +233,7 @@ function getSpecialAttacker (videoTime, events, players) {
 }
 
 // ── SF2 health bar renderer ───────────────────────────────────────────────────
-function renderFrame (ctx, videoTime, elapsed, project, w, h) {
+function renderFrame (ctx, videoTime, elapsed, project, w, h, readyVideoTime = null, lifebarVideoTime = null) {
   ctx.clearRect(0, 0, w, h)
   if (!project.players?.length) return
 
@@ -244,10 +244,11 @@ function renderFrame (ctx, videoTime, elapsed, project, w, h) {
     shake[p.id] = getShakeOffset(videoTime, project.events, p.id)
   })
 
-  drawHUD(ctx, w, h, project.players, hp, shake, elapsed, project.events, videoTime, project.outcome)
+  drawHUD(ctx, w, h, project.players, hp, shake, elapsed, project.events, videoTime, project.outcome, readyVideoTime, lifebarVideoTime)
 }
 
-function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, events = [], videoTime = 0, outcome = null) {
+function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, events = [], videoTime = 0, outcome = null, readyVideoTime = null, lifebarVideoTime = null) {
+  if (lifebarVideoTime !== null && videoTime < lifebarVideoTime) return
   const BORDER  = 2
   const BAR_H   = Math.max(14, Math.floor(H * 0.028))
   const BAR_W   = Math.floor(W * 0.42)
@@ -365,10 +366,11 @@ function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, event
     ctx.restore()
   }
 
-  // ── READY / FIGHT! — commence 1s après le début ───────────────────────────
-  if (elapsed >= 1.0 && elapsed < 3.0) {
-    const isReady  = elapsed < 2.0
-    const phase    = isReady ? elapsed - 1.0 : elapsed - 2.0
+  // ── READY / FIGHT! — à partir du marqueur ready (ou 1s après le début par défaut) ─
+  const readyPhase = readyVideoTime !== null ? (videoTime - readyVideoTime) : (elapsed - 1.0)
+  if (readyPhase >= 0 && readyPhase < 2.0) {
+    const isReady  = readyPhase < 1.0
+    const phase    = isReady ? readyPhase : readyPhase - 1.0
     let   alpha    = phase < 0.1 ? phase / 0.1 : phase > 0.8 ? (1.0 - phase) / 0.2 : 1.0
     alpha = Math.max(0, Math.min(1, alpha))
 
@@ -424,12 +426,19 @@ async function compileProject (project, videoPath, outputPath, onProgress) {
   const totalFrames   = Math.ceil(totalDuration * fps)
 
   // ── Timing des sons ───────────────────────────────────────────────────────
-  const readyMs = 1000
-  const fightMs = 2000
+  const allEvts      = project.events || []
+  const readyEvt     = allEvts.find(e => e.type === 'ready')
+  const lifebarEvt   = allEvts.find(e => e.type === 'lifebar')
+  const readyVideoTime   = readyEvt   ? readyEvt.time   : null
+  const lifebarVideoTime = lifebarEvt ? lifebarEvt.time : null
 
-  // Son de fin (KO ou DRAW) calé sur le dernier événement
-  const allEvts    = project.events || []
-  const lastEvtTime = allEvts.length > 0 ? Math.max(...allEvts.map(e => e.time)) : -1
+  const rawReadyMs = readyVideoTime !== null ? videoTimeToOutputMs(readyVideoTime, cuts) : -1
+  const readyMs    = rawReadyMs >= 0 ? rawReadyMs : 1000
+  const fightMs    = readyMs + 1000
+
+  // Son de fin (KO ou DRAW) calé sur le dernier événement de combat
+  const combatEvts  = allEvts.filter(e => e.type !== 'ready' && e.type !== 'lifebar')
+  const lastEvtTime = combatEvts.length > 0 ? Math.max(...combatEvts.map(e => e.time)) : -1
   const outcomeMs   = (project.outcome && lastEvtTime >= 0)
     ? Math.max(0, videoTimeToOutputMs(lastEvtTime, cuts) + 200)
     : -1
@@ -527,7 +536,7 @@ async function compileProject (project, videoPath, outputPath, onProgress) {
         acc += seg
       }
 
-      renderFrame(ctx, actual, elapsed, project, width, height)
+      renderFrame(ctx, actual, elapsed, project, width, height, readyVideoTime, lifebarVideoTime)
 
       const imgData = ctx.getImageData(0, 0, width, height)
       const buf     = Buffer.from(imgData.data.buffer)

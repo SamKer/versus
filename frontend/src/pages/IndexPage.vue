@@ -14,7 +14,7 @@
 
     <template v-else>
       <!-- Barre recherche + tri -->
-      <div class="row q-col-gutter-sm q-mb-md items-center">
+      <div class="row q-col-gutter-sm q-mb-sm items-center">
         <div class="col">
           <q-input
             v-model="search"
@@ -47,6 +47,38 @@
             </q-list>
           </q-btn-dropdown>
         </div>
+      </div>
+
+      <!-- Filtres type de combat & armes -->
+      <div class="row items-center q-gutter-xs q-mb-md">
+        <q-chip
+          v-for="opt in fightTypeOptions" :key="opt.value"
+          dense clickable
+          :color="filterType === opt.value ? 'primary' : 'grey-9'"
+          :text-color="filterType === opt.value ? 'white' : 'grey-4'"
+          @click="filterType = filterType === opt.value ? null : opt.value"
+        >
+          {{ opt.label }}
+        </q-chip>
+        <q-separator vertical dark class="q-mx-xs" style="height:20px;align-self:center" />
+        <q-chip
+          dense clickable
+          :color="filterArmed === true ? 'orange-9' : 'grey-9'"
+          :text-color="filterArmed === true ? 'white' : 'grey-4'"
+          icon="hardware"
+          @click="filterArmed = filterArmed === true ? null : true"
+        >
+          Avec arme
+        </q-chip>
+        <q-chip
+          dense clickable
+          :color="filterArmed === false ? 'teal-9' : 'grey-9'"
+          :text-color="filterArmed === false ? 'white' : 'grey-4'"
+          icon="sports_martial_arts"
+          @click="filterArmed = filterArmed === false ? null : false"
+        >
+          Sans arme
+        </q-chip>
       </div>
 
       <!-- Résultats / Empty -->
@@ -149,11 +181,19 @@ onMounted(() => store.fetchAll())
 // ── Recherche & tri ───────────────────────────────────────────
 const search = ref('')
 const sortBy = ref<'date' | 'views' | 'title'>('date')
+const filterType  = ref<'1v1' | '1vAll' | '2v2' | null>(null)
+const filterArmed = ref<boolean | null>(null)
 
 const sortOptions = [
   { value: 'date',  label: 'Date d\'ajout',  icon: 'access_time' },
   { value: 'views', label: 'Vues',            icon: 'visibility'  },
   { value: 'title', label: 'Titre (A–Z)',     icon: 'sort_by_alpha' }
+] as const
+
+const fightTypeOptions = [
+  { value: '1v1',   label: '1 vs 1'   },
+  { value: '1vAll', label: '1 vs All' },
+  { value: '2v2',   label: '2 vs 2'   }
 ] as const
 
 const sortLabel = computed(() => sortOptions.find(o => o.value === sortBy.value)?.label ?? 'Trier')
@@ -169,6 +209,14 @@ const filteredFights = computed(() => {
         f.actors.some(a => (a.name || '').toLowerCase().includes(q))
       )
     : [...store.fights]
+
+  if (filterType.value !== null) {
+    list = list.filter(f => (f.fightType ?? '1v1') === filterType.value)
+  }
+
+  if (filterArmed.value !== null) {
+    list = list.filter(f => (f.armed ?? false) === filterArmed.value)
+  }
 
   if (sortBy.value === 'views') {
     list = list.sort((a, b) => (b.views ?? 0) - (a.views ?? 0))

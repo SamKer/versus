@@ -11,6 +11,10 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
+    path: '/game',
+    component: () => import('pages/GamePage.vue')
+  },
+  {
     path: '/:catchAll(.*)*',
     component: () => import('pages/ErrorNotFound.vue')
   }

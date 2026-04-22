@@ -139,146 +139,202 @@
           Erreur : {{ exportError }}
         </q-banner>
 
-        <!-- Players -->
+        <!-- ── PERSONNAGES ─────────────────────────────────────────── -->
         <q-card dark flat bordered>
           <q-card-section class="q-pa-sm">
             <div class="row items-center q-mb-xs">
-              <div class="text-caption text-bold text-grey-4">PERSONNAGES</div>
-              <q-space />
-              <q-btn flat dense round icon="swap_horiz" size="sm" color="grey" title="Inverser A & B" @click="swapPlayers" :disable="project.players.length !== 2" class="q-mr-xs" />
-              <q-btn flat dense round icon="add" size="sm" color="primary" @click="addPlayer" :disable="project.players.length >= 2" />
-            </div>
-            <div v-for="(player, i) in project.players" :key="player.id" class="q-mb-sm">
-              <!-- Identité -->
-              <div class="row items-center q-gutter-xs q-mb-xs">
-                <input type="color" v-model="player.color" class="color-picker" :title="'Couleur ' + player.name" />
-                <q-input v-model="player.name" dense dark outlined style="flex:1;min-width:0" input-class="text-caption" />
-                <q-btn-toggle
-                  v-model="player.side"
-                  dense flat no-caps
-                  :options="[{value:'left',icon:'align_horizontal_left'},{value:'right',icon:'align_horizontal_right'}]"
-                  color="grey" toggle-color="primary"
-                />
-                <q-btn flat dense round icon="delete" size="xs" color="negative" @click="removePlayer(i)" />
+              <div
+                class="text-caption text-bold text-grey-4 col cursor-pointer row items-center no-wrap"
+                @click="collapsed.players = !collapsed.players"
+              >
+                <q-icon :name="collapsed.players ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
+                PERSONNAGES
               </div>
-              <!-- Vie finale -->
-              <div class="row items-center q-gutter-xs">
-                <q-icon name="favorite" size="11px" color="red-4" />
-                <span class="text-caption text-grey-5" style="font-size:10px;white-space:nowrap">Fin :</span>
-                <q-slider
-                  v-model.number="player.finalHp"
-                  :min="0" :max="100" :step="1"
-                  class="col" color="red-5" dense
-                  @update:model-value="recomputeDamages"
-                />
-                <span class="text-caption text-grey-4" style="width:32px;text-align:right">{{ player.finalHp }}%</span>
+              <q-btn flat dense round icon="swap_horiz" size="sm" color="grey" title="Inverser A & B" @click.stop="swapPlayers" :disable="project.players.length !== 2" class="q-mr-xs" />
+              <q-btn flat dense round icon="add" size="sm" color="primary" @click.stop="addPlayer" :disable="project.players.length >= 2" />
+            </div>
+
+            <div v-show="!collapsed.players">
+              <div v-for="(player, i) in project.players" :key="player.id" class="q-mb-sm">
+                <!-- Identité -->
+                <div class="row items-center q-gutter-xs q-mb-xs">
+                  <input type="color" v-model="player.color" class="color-picker" :title="'Couleur ' + player.name" />
+                  <q-input v-model="player.name" dense dark outlined style="flex:1;min-width:0" input-class="text-caption" />
+                  <q-btn-toggle
+                    v-model="player.side"
+                    dense flat no-caps
+                    :options="[{value:'left',icon:'align_horizontal_left'},{value:'right',icon:'align_horizontal_right'}]"
+                    color="grey" toggle-color="primary"
+                    @update:model-value="scheduleAutoSave"
+                  />
+                  <q-btn flat dense round icon="delete" size="xs" color="negative" @click="removePlayer(i)" />
+                </div>
+
+                <!-- Association acteur -->
+                <div v-if="fight?.actors?.length" class="q-mb-xs">
+                  <div class="text-caption text-grey-6 q-mb-xs" style="font-size:10px">Acteur associé :</div>
+                  <div class="row q-gutter-xs">
+                    <div
+                      v-for="(actor, ai) in fight.actors"
+                      :key="ai"
+                      class="actor-chip cursor-pointer"
+                      :class="{ 'actor-chip--active': player.actorIndex === ai }"
+                      @click="assignActor(player, ai)"
+                      :title="`${actor.name}${actor.character ? ' — ' + actor.character : ''}`"
+                    >
+                      <img v-if="actor.photo" :src="actor.photo" class="actor-chip-img" />
+                      <div v-else class="actor-chip-img actor-chip-no-img">?</div>
+                      <div class="actor-chip-label">
+                        <div class="actor-chip-realname">{{ actor.name }}</div>
+                        <div v-if="actor.character" class="actor-chip-char">{{ actor.character }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Vie finale -->
+                <div class="row items-center q-gutter-xs">
+                  <q-icon name="favorite" size="11px" color="red-4" />
+                  <span class="text-caption text-grey-5" style="font-size:10px;white-space:nowrap">Fin :</span>
+                  <q-slider
+                    v-model.number="player.finalHp"
+                    :min="0" :max="100" :step="1"
+                    class="col" color="red-5" dense
+                    @update:model-value="recomputeDamages"
+                  />
+                  <span class="text-caption text-grey-4" style="width:32px;text-align:right">{{ player.finalHp }}%</span>
+                </div>
+              </div>
+              <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
+                Aucun personnage
               </div>
             </div>
-            <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
-              Aucun personnage
+          </q-card-section>
+        </q-card>
+
+        <!-- ── MARQUEURS HUD ───────────────────────────────────────── -->
+        <q-card dark flat bordered>
+          <q-card-section class="q-pa-sm">
+            <div
+              class="text-caption text-bold text-grey-4 q-mb-sm cursor-pointer row items-center no-wrap"
+              @click="collapsed.hud = !collapsed.hud"
+            >
+              <q-icon :name="collapsed.hud ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
+              MARQUEURS HUD
+            </div>
+            <div v-show="!collapsed.hud">
+              <div class="row items-center q-mb-xs">
+                <q-icon name="favorite" color="yellow-6" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-grey-4 col">Barres de vie</span>
+                <span v-if="lifebarEvent" class="text-caption text-mono text-yellow-6 q-mr-xs">{{ fmtTime(lifebarEvent.time) }}</span>
+                <q-btn v-if="lifebarEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(lifebarEvent.id)" />
+                <q-btn flat dense round icon="place" size="xs" color="yellow-6" @click="setGlobalEvent('lifebar')" :title="lifebarEvent ? 'Repositionner' : 'Poser ici'" />
+              </div>
+              <div class="row items-center">
+                <q-icon name="flag" color="green-5" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-grey-4 col">READY</span>
+                <span v-if="readyEvent" class="text-caption text-mono text-green-5 q-mr-xs">{{ fmtTime(readyEvent.time) }}</span>
+                <q-btn v-if="readyEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(readyEvent.id)" />
+                <q-btn flat dense round icon="place" size="xs" color="green-5" @click="setGlobalEvent('ready')" :title="readyEvent ? 'Repositionner' : 'Poser ici'" />
+              </div>
             </div>
           </q-card-section>
         </q-card>
 
-        <!-- Marqueurs HUD globaux (lifebar + ready) -->
+        <!-- ── RÉSULTAT ───────────────────────────────────────────── -->
         <q-card dark flat bordered>
           <q-card-section class="q-pa-sm">
-            <div class="text-caption text-bold text-grey-4 q-mb-sm">MARQUEURS HUD</div>
-
-            <!-- LifeBar -->
-            <div class="row items-center q-mb-xs">
-              <q-icon name="favorite" color="yellow-6" size="14px" class="q-mr-xs" />
-              <span class="text-caption text-grey-4 col">Barres de vie</span>
-              <span v-if="lifebarEvent" class="text-caption text-mono text-yellow-6 q-mr-xs">{{ fmtTime(lifebarEvent.time) }}</span>
-              <q-btn v-if="lifebarEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(lifebarEvent.id)" />
-              <q-btn flat dense round icon="place" size="xs" color="yellow-6" @click="setGlobalEvent('lifebar')" :title="lifebarEvent ? 'Repositionner' : 'Poser ici'" />
+            <div
+              class="text-caption text-bold text-grey-4 q-mb-sm cursor-pointer row items-center no-wrap"
+              @click="collapsed.outcome = !collapsed.outcome"
+            >
+              <q-icon :name="collapsed.outcome ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
+              RÉSULTAT
             </div>
-
-            <!-- Ready -->
-            <div class="row items-center">
-              <q-icon name="flag" color="green-5" size="14px" class="q-mr-xs" />
-              <span class="text-caption text-grey-4 col">READY</span>
-              <span v-if="readyEvent" class="text-caption text-mono text-green-5 q-mr-xs">{{ fmtTime(readyEvent.time) }}</span>
-              <q-btn v-if="readyEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(readyEvent.id)" />
-              <q-btn flat dense round icon="place" size="xs" color="green-5" @click="setGlobalEvent('ready')" :title="readyEvent ? 'Repositionner' : 'Poser ici'" />
+            <div v-show="!collapsed.outcome">
+              <div class="row q-gutter-sm items-center">
+                <q-radio v-model="project.outcome" val="ko"   label="K.O."  color="negative" dense dark class="text-caption" @update:model-value="scheduleAutoSave" />
+                <q-radio v-model="project.outcome" val="draw" label="DRAW"  color="grey-5"   dense dark class="text-caption" @update:model-value="scheduleAutoSave" />
+                <q-btn v-if="project.outcome" flat dense no-caps size="xs" icon="close" color="grey-6" label="Aucun" @click="() => { project.outcome = null; scheduleAutoSave() }" />
+              </div>
             </div>
           </q-card-section>
         </q-card>
 
-        <!-- Résultat du combat -->
+        <!-- ── HITS ───────────────────────────────────────────────── -->
         <q-card dark flat bordered>
           <q-card-section class="q-pa-sm">
-            <div class="text-caption text-bold text-grey-4 q-mb-sm">RÉSULTAT</div>
-            <div class="row q-gutter-sm items-center">
-              <q-radio v-model="project.outcome" val="ko"   label="K.O."  color="negative" dense dark class="text-caption" @update:model-value="scheduleAutoSave" />
-              <q-radio v-model="project.outcome" val="draw" label="DRAW"  color="grey-5"   dense dark class="text-caption" @update:model-value="scheduleAutoSave" />
-              <q-btn v-if="project.outcome" flat dense no-caps size="xs" icon="close" color="grey-6" label="Aucun" @click="() => { project.outcome = null; scheduleAutoSave() }" />
-            </div>
-          </q-card-section>
-        </q-card>
-
-        <!-- Hit events — 7 boutons par protagoniste -->
-        <q-card dark flat bordered>
-          <q-card-section class="q-pa-sm">
-            <div class="text-caption text-bold text-grey-4 q-mb-sm">
+            <div
+              class="text-caption text-bold text-grey-4 q-mb-sm cursor-pointer row items-center no-wrap"
+              @click="collapsed.hits = !collapsed.hits"
+            >
+              <q-icon :name="collapsed.hits ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
               HITS À {{ fmtTime(currentTime) }}
             </div>
-            <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
-              Aucun personnage
-            </div>
-            <div v-for="player in project.players" :key="player.id" class="q-mb-sm">
-              <div class="row items-center justify-between q-mb-xs">
-                <span class="text-caption text-bold" :style="{ color: player.color }">{{ player.name }}</span>
-                <q-btn
-                  flat dense round icon="sports_kabaddi" size="xs" color="yellow-7"
-                  title="KO" @click="addKoEvent(player.id)"
-                />
-              </div>
-              <div class="row q-gutter-xs">
-                <q-btn
-                  v-for="btn in hitButtons" :key="btn.type"
-                  round dense size="sm"
-                  :icon="btn.icon"
-                  :color="btn.color"
-                  :title="btn.label"
-                  @click="addHitEvent(player.id, btn.type)"
-                />
+            <div v-show="!collapsed.hits">
+              <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">Aucun personnage</div>
+              <div v-for="player in project.players" :key="player.id" class="q-mb-sm">
+                <div class="row items-center justify-between q-mb-xs">
+                  <span class="text-caption text-bold" :style="{ color: player.color }">{{ player.name }}</span>
+                  <q-btn flat dense round icon="sports_kabaddi" size="xs" color="yellow-7" title="KO" @click="addKoEvent(player.id)" />
+                </div>
+                <div class="row q-gutter-xs">
+                  <q-btn
+                    v-for="btn in hitButtons" :key="btn.type"
+                    round dense size="sm"
+                    :icon="btn.icon" :color="btn.color" :title="btn.label"
+                    @click="addHitEvent(player.id, btn.type)"
+                  />
+                </div>
               </div>
             </div>
           </q-card-section>
         </q-card>
 
-        <!-- Events list -->
+        <!-- ── ÉVÉNEMENTS ─────────────────────────────────────────── -->
         <q-card dark flat bordered class="col overflow-auto">
           <q-card-section class="q-pa-sm">
-            <div class="text-caption text-bold text-grey-4 q-mb-xs">ÉVÉNEMENTS ({{ project.events.length }})</div>
-            <div v-if="!project.events.length" class="text-caption text-grey text-center q-py-xs">Aucun événement</div>
             <div
-              v-for="ev in sortedEvents" :key="ev.id"
-              class="event-row row items-center q-mb-xs"
-              @click="seekTo(ev.time)"
+              class="text-caption text-bold text-grey-4 q-mb-xs cursor-pointer row items-center no-wrap"
+              @click="collapsed.events = !collapsed.events"
             >
-              <q-icon :name="eventIcon(ev.type)" :color="eventColor(ev.type)" size="14px" class="q-mr-xs" />
-              <span class="text-caption text-mono text-grey-4" style="width:42px">{{ fmtTime(ev.time) }}</span>
-              <span class="text-caption ellipsis col">{{ ev.target ? playerName(ev.target) : eventLabel(ev.type) }}</span>
-              <span v-if="ev.damage > 0" class="text-caption text-orange q-mx-xs">-{{ ev.damage.toFixed(1) }}</span>
-              <q-btn flat dense round icon="close" size="xs" color="negative" @click.stop="removeEvent(ev.id)" />
+              <q-icon :name="collapsed.events ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
+              ÉVÉNEMENTS ({{ project.events.length }})
+            </div>
+            <div v-show="!collapsed.events">
+              <div v-if="!project.events.length" class="text-caption text-grey text-center q-py-xs">Aucun événement</div>
+              <div
+                v-for="ev in sortedEvents" :key="ev.id"
+                class="event-row row items-center q-mb-xs"
+                @click="seekTo(ev.time)"
+              >
+                <q-icon :name="eventIcon(ev.type)" :color="eventColor(ev.type)" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-mono text-grey-4" style="width:42px">{{ fmtTime(ev.time) }}</span>
+                <span class="text-caption ellipsis col">{{ ev.target ? playerName(ev.target) : eventLabel(ev.type) }}</span>
+                <span v-if="ev.damage > 0" class="text-caption text-orange q-mx-xs">-{{ ev.damage.toFixed(1) }}</span>
+                <q-btn flat dense round icon="close" size="xs" color="negative" @click.stop="removeEvent(ev.id)" />
+              </div>
             </div>
           </q-card-section>
         </q-card>
 
-        <!-- Cuts list -->
+        <!-- ── COUPES ─────────────────────────────────────────────── -->
         <q-card dark flat bordered>
           <q-card-section class="q-pa-sm">
-            <div class="text-caption text-bold text-grey-4 q-mb-xs">COUPES ({{ project.cuts.length }})</div>
-            <div v-if="!project.cuts.length" class="text-caption text-grey text-center q-py-xs">Toute la vidéo</div>
             <div
-              v-for="(cut, i) in project.cuts" :key="i"
-              class="row items-center q-mb-xs"
+              class="text-caption text-bold text-grey-4 q-mb-xs cursor-pointer row items-center no-wrap"
+              @click="collapsed.cuts = !collapsed.cuts"
             >
-              <q-icon name="content_cut" color="orange" size="14px" class="q-mr-xs" />
-              <span class="text-caption text-mono col text-grey-4">{{ fmtTime(cut.start) }} → {{ fmtTime(cut.end) }}</span>
-              <q-btn flat dense round icon="close" size="xs" color="negative" @click="removeCut(i)" />
+              <q-icon :name="collapsed.cuts ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
+              COUPES ({{ project.cuts.length }})
+            </div>
+            <div v-show="!collapsed.cuts">
+              <div v-if="!project.cuts.length" class="text-caption text-grey text-center q-py-xs">Toute la vidéo</div>
+              <div v-for="(cut, i) in project.cuts" :key="i" class="row items-center q-mb-xs">
+                <q-icon name="content_cut" color="orange" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-mono col text-grey-4">{{ fmtTime(cut.start) }} → {{ fmtTime(cut.end) }}</span>
+                <q-btn flat dense round icon="close" size="xs" color="negative" @click="removeCut(i)" />
+              </div>
             </div>
           </q-card-section>
         </q-card>
@@ -308,7 +364,7 @@ const videoSrc = computed(() => {
 
 // ── Project state ──────────────────────────────────────────────────────────────
 const project = reactive<{
-  players: Array<{ id: string; name: string; color: string; side: 'left' | 'right'; finalHp: number }>
+  players: Array<{ id: string; name: string; color: string; side: 'left' | 'right'; finalHp: number; actorIndex: number | null }>
   events:  Array<{ id: string; time: number; type: string; target: string; damage: number }>
   cuts:    Array<{ start: number; end: number }>
   outcome: 'ko' | 'draw' | null
@@ -340,6 +396,9 @@ const exportPath     = ref('')
 const exportError    = ref('')
 const exportProgress = ref(0)
 let   pollTimer    = 0
+
+// ── Collapsed sections ────────────────────────────────────────────────────────
+const collapsed = reactive({ players: false, hud: false, outcome: false, hits: false, events: false, cuts: false })
 
 // ── Saving / dirty state ───────────────────────────────────────────────────────
 const saving  = ref(false)
@@ -445,11 +504,12 @@ async function loadProject () {
   if (!project.players.length && fight.value?.actors?.length) {
     fight.value.actors.slice(0, 2).forEach((actor: any, i: number) => {
       project.players.push({
-        id:      crypto.randomUUID(),
-        name:    actor.character || actor.name,
-        color:   i === 0 ? '#00e676' : '#e53935',
-        side:    i === 0 ? 'left' : 'right',
-        finalHp: 0
+        id:         crypto.randomUUID(),
+        name:       actor.character || actor.name,
+        color:      i === 0 ? '#00e676' : '#e53935',
+        side:       i === 0 ? 'left' : 'right',
+        finalHp:    0,
+        actorIndex: i
       })
     })
   }
@@ -765,12 +825,14 @@ function removeCut (i: number) {
 // ── Players ────────────────────────────────────────────────────────────────────
 function addPlayer () {
   const side = project.players.length === 0 ? 'left' : 'right'
+  const idx  = project.players.length   // 0 pour le premier, 1 pour le second
   project.players.push({
-    id:      crypto.randomUUID(),
-    name:    `Joueur ${project.players.length + 1}`,
-    color:   side === 'left' ? '#00e676' : '#e53935',
+    id:         crypto.randomUUID(),
+    name:       `Joueur ${idx + 1}`,
+    color:      side === 'left' ? '#00e676' : '#e53935',
     side,
-    finalHp: 0
+    finalHp:    0,
+    actorIndex: idx
   })
 }
 
@@ -783,13 +845,21 @@ function removePlayer (i: number) {
 function swapPlayers () {
   if (project.players.length !== 2) return
   const [a, b] = project.players
-  ;[a.side, b.side] = [b.side, a.side]
+  ;[a.side, b.side]             = [b.side, a.side]
+  ;[a.actorIndex, b.actorIndex] = [b.actorIndex, a.actorIndex]
   project.players.reverse()
   scheduleAutoSave()
 }
 
 function playerName (id: string) {
   return project.players.find(p => p.id === id)?.name ?? id
+}
+
+function assignActor (player: typeof project.players[0], ai: number) {
+  player.actorIndex = ai
+  const actor = fight.value?.actors?.[ai]
+  if (actor) player.name = actor.character || actor.name
+  scheduleAutoSave()
 }
 
 // ── Calcul automatique des dégâts ──────────────────────────────────────────────
@@ -1137,5 +1207,55 @@ watch(videoSrc, async () => {
   border-radius: 4px;
   padding: 2px 4px;
   &:hover { background: rgba(255,255,255,0.05); }
+}
+.actor-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 60px;
+  border: 1px solid #444;
+  border-radius: 6px;
+  padding: 4px;
+  background: #222;
+  transition: border-color 0.15s, background 0.15s;
+  &:hover { border-color: #888; background: #2a2a2a; }
+  &.actor-chip--active { border-color: #00e676; background: rgba(0,230,118,0.12); }
+}
+.actor-chip-img {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  object-fit: cover;
+  display: block;
+}
+.actor-chip-no-img {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #333;
+  color: #666;
+  font-size: 18px;
+}
+.actor-chip-label {
+  width: 100%;
+  margin-top: 3px;
+  text-align: center;
+}
+.actor-chip-realname {
+  font-size: 9px;
+  color: #aaa;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.actor-chip-char {
+  font-size: 9px;
+  color: #e0e0e0;
+  font-weight: bold;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 </style>

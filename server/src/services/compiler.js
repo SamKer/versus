@@ -1,4 +1,4 @@
-const { createCanvas } = require('canvas')
+const { createCanvas, loadImage } = require('canvas')
 const { spawn }        = require('child_process')
 const path             = require('path')
 const fs               = require('fs')
@@ -158,30 +158,34 @@ function ensureSounds (dataPath) {
   const { execSync } = require('child_process')
   const dir = path.join(dataPath, 'sounds')
   fs.mkdirSync(dir, { recursive: true })
-  // v2 = sons formantiques améliorés
-  const p = {
-    ready: path.join(dir, 'ready_v2.wav'),
-    fight: path.join(dir, 'fight_v2.wav'),
-    ko:    path.join(dir, 'ko_v2.wav'),
-    draw:  path.join(dir, 'draw_v2.wav'),
-  }
+
   const entries = [
-    { file: p.ready, text: 'ready', gen: genReady },
-    { file: p.fight, text: 'fight', gen: genFight },
-    { file: p.ko,    text: 'K. O.', gen: genKo    },
-    { file: p.draw,  text: 'draw',  gen: genDraw   },
+    { name: 'ready', text: 'ready', gen: genReady },
+    { name: 'fight', text: 'fight', gen: genFight },
+    { name: 'ko',    text: 'K. O.', gen: genKo    },
+    { name: 'draw',  text: 'draw',  gen: genDraw   },
   ]
-  for (const { file, text, gen } of entries) {
-    if (!fs.existsSync(file)) {
+
+  const p = {}
+  for (const { name, text, gen } of entries) {
+    // Fichier custom (toute extension) = priorité
+    const files      = fs.readdirSync(dir)
+    const customFile = files.find(f => f.startsWith(`${name}_custom.`))
+    if (customFile) { p[name] = path.join(dir, customFile); continue }
+
+    // Synthèse (espeak ou formantique)
+    const synthFile = path.join(dir, `${name}_v2.wav`)
+    if (!fs.existsSync(synthFile)) {
       let ok = false
       for (const bin of ['espeak-ng', 'espeak']) {
         try {
-          execSync(`${bin} -w "${file}" -p 55 -s 115 -a 200 "${text}" 2>/dev/null`, { timeout: 5000 })
-          if (fs.existsSync(file) && fs.statSync(file).size > 200) { ok = true; break }
+          execSync(`${bin} -w "${synthFile}" -p 55 -s 115 -a 200 "${text}" 2>/dev/null`, { timeout: 5000 })
+          if (fs.existsSync(synthFile) && fs.statSync(synthFile).size > 200) { ok = true; break }
         } catch {}
       }
-      if (!ok) fs.writeFileSync(file, gen())
+      if (!ok) fs.writeFileSync(synthFile, gen())
     }
+    p[name] = synthFile
   }
   return p
 }
@@ -189,6 +193,21 @@ function ensureSounds (dataPath) {
 // ── Animation helpers ─────────────────────────────────────────────────────────
 const ANIM_DURATION  = 0.25
 const SHAKE_DURATION = 0.4
+const SLIDE_DURATION = 0.5   // durée de l'animation d'entrée de la lifebar
+
+// Trouve l'acteur du fight qui correspond à un joueur (par nom puis par position)
+function findFightActor (player, fightActors) {
+  if (!fightActors?.length) return null
+  // Source fiable : actorIndex stocké dans le projet (mis à jour au swap)
+  if (typeof player.actorIndex === 'number') {
+    return fightActors[player.actorIndex] ?? null
+  }
+  // Fallback : matching par nom (projets sans actorIndex sauvegardé)
+  const match = fightActors.find(a => a.name?.toLowerCase() === player.name?.toLowerCase())
+  if (match) return match
+  const idx = player.side === 'left' ? 0 : 1
+  return fightActors[idx] ?? null
+}
 
 function getAnimatedHp (time, events, playerId) {
   let hp = 100
@@ -233,7 +252,7 @@ function getSpecialAttacker (videoTime, events, players) {
 }
 
 // ── SF2 health bar renderer ───────────────────────────────────────────────────
-function renderFrame (ctx, videoTime, elapsed, project, w, h, readyVideoTime = null, lifebarVideoTime = null) {
+function renderFrame (ctx, videoTime, elapsed, project, w, h, readyVideoTime = null, lifebarVideoTime = null, actorData = {}) {
   ctx.clearRect(0, 0, w, h)
   if (!project.players?.length) return
 
@@ -244,63 +263,126 @@ function renderFrame (ctx, videoTime, elapsed, project, w, h, readyVideoTime = n
     shake[p.id] = getShakeOffset(videoTime, project.events, p.id)
   })
 
-  drawHUD(ctx, w, h, project.players, hp, shake, elapsed, project.events, videoTime, project.outcome, readyVideoTime, lifebarVideoTime)
+  drawHUD(ctx, w, h, project.players, hp, shake, elapsed, project.events, videoTime, project.outcome, readyVideoTime, lifebarVideoTime, actorData)
 }
 
-function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, events = [], videoTime = 0, outcome = null, readyVideoTime = null, lifebarVideoTime = null) {
+function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, events = [], videoTime = 0, outcome = null, readyVideoTime = null, lifebarVideoTime = null, actorData = {}) {
   if (lifebarVideoTime !== null && videoTime < lifebarVideoTime) return
+
   const BORDER  = 2
   const BAR_H   = Math.max(14, Math.floor(H * 0.028))
-  const BAR_W   = Math.floor(W * 0.42)
+  const BAR_W   = Math.floor(W * 0.38)   // légèrement réduit pour la photo
   const MX      = 14
   const MY      = 14
   const NAME_SZ = Math.max(11, Math.floor(H * 0.022))
+  const PHOTO_H = Math.floor(H * 0.10)
+  const PHOTO_W = Math.floor(PHOTO_H * 0.70)
+
+  // ── Calcul de la slide (descente depuis le haut) ─────────────────────────
+  let slideY = 0
+  if (lifebarVideoTime !== null) {
+    const elapsed2 = videoTime - lifebarVideoTime
+    if (elapsed2 < SLIDE_DURATION) {
+      const t    = elapsed2 / SLIDE_DURATION
+      const ease = 1 - Math.pow(1 - t, 3)           // cubic ease-out
+      const offY = MY + PHOTO_H + BORDER * 2 + 10   // hauteur totale du HUD
+      slideY = -offY * (1 - ease)
+    }
+  }
+
+  ctx.save()
+  ctx.translate(0, Math.round(slideY))
 
   players.forEach(player => {
     const pct    = Math.max(0, Math.min(1, (hp[player.id] ?? 100) / 100))
     const isLeft = player.side === 'left'
-    const x      = isLeft ? MX : W - MX - BAR_W
-    const fillW  = Math.floor(BAR_W * pct)
     const shakeX = shakeOffsets[player.id] || 0
+    const aData  = actorData[player.id] || {}
+
+    // Position de la barre (décalée pour laisser la place à la photo)
+    const barX  = isLeft ? MX + PHOTO_W + 4 : W - MX - BAR_W - PHOTO_W - 4
+    const fillW = Math.floor(BAR_W * pct)
+
+    // Photo alignée : bord supérieur = bord supérieur de la barre (avec bordure)
+    const photoY = MY - BORDER
+    const photoX = isLeft ? MX : W - MX - PHOTO_W
 
     ctx.save()
     ctx.translate(shakeX, 0)
 
-    // Bordure blanche
+    // ── Photo de l'acteur ──────────────────────────────────────────────────
+    if (aData.img) {
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(photoX, photoY, PHOTO_W, PHOTO_H)
+      ctx.clip()
+      // Ratio portrait : recadre en haut (visage)
+      const ratio  = aData.img.width / aData.img.height
+      const drawH  = PHOTO_W / ratio
+      ctx.drawImage(aData.img, photoX, photoY, PHOTO_W, Math.max(PHOTO_H, drawH))
+      ctx.restore()
+      ctx.strokeStyle = '#fff'
+      ctx.lineWidth   = BORDER
+      ctx.strokeRect(photoX, photoY, PHOTO_W, PHOTO_H)
+    }
+
+    // ── Barre de vie ───────────────────────────────────────────────────────
     ctx.fillStyle = '#fff'
-    ctx.fillRect(x - BORDER, MY - BORDER, BAR_W + BORDER * 2, BAR_H + BORDER * 2)
-
-    // Fond jaune (zone vide = vie perdue)
+    ctx.fillRect(barX - BORDER, MY - BORDER, BAR_W + BORDER * 2, BAR_H + BORDER * 2)
     ctx.fillStyle = '#f5c800'
-    ctx.fillRect(x, MY, BAR_W, BAR_H)
-
-    // Barre rouge (vie restante)
+    ctx.fillRect(barX, MY, BAR_W, BAR_H)
     if (fillW > 0) {
-      const fillX = isLeft ? x : x + BAR_W - fillW
+      const fillX = isLeft ? barX : barX + BAR_W - fillW
       ctx.fillStyle = '#e01000'
       ctx.fillRect(fillX, MY, fillW, BAR_H)
       ctx.fillStyle = 'rgba(255,255,255,0.22)'
       ctx.fillRect(fillX, MY, fillW, Math.floor(BAR_H * 0.35))
     }
 
-    // Nom sous la barre
-    ctx.save()
-    ctx.font = `bold ${NAME_SZ}px monospace`
-    let name = player.name.toUpperCase()
-    while (ctx.measureText(name).width > BAR_W - 4 && name.length > 1)
-      name = name.slice(0, -1)
-    if (name.length < player.name.length) name += '…'
-    ctx.fillStyle     = '#ffe600'
+    // ── Noms : nom du joueur + (vrai nom acteur) ───────────────────────────
+    const nameY      = MY + BAR_H + BORDER + 2
+    const playerName = player.name.toUpperCase()
+    const actorName  = aData.actorName || null
+
     ctx.shadowColor   = '#000'
     ctx.shadowBlur    = 3
     ctx.shadowOffsetX = 1
     ctx.shadowOffsetY = 1
-    ctx.textAlign     = isLeft ? 'left' : 'right'
-    ctx.fillText(name, isLeft ? x : x + BAR_W, MY + BAR_H + NAME_SZ + 2)
-    ctx.restore()
+    ctx.textBaseline  = 'top'
+
+    if (isLeft) {
+      // PLAYERNAME  (actorname)
+      ctx.textAlign = 'left'
+      ctx.font      = `bold ${NAME_SZ}px monospace`
+      ctx.fillStyle = '#ffe600'
+      ctx.fillText(playerName, barX, nameY)
+      if (actorName) {
+        const pnW  = ctx.measureText(playerName).width
+        const aSZ  = Math.max(9, Math.floor(NAME_SZ * 0.82))
+        ctx.font      = `${aSZ}px monospace`
+        ctx.fillStyle = '#cccccc'
+        ctx.fillText(` (${actorName})`, barX + pnW, nameY + (NAME_SZ - aSZ) / 2)
+      }
+    } else {
+      // (actorname)  PLAYERNAME  — symétrie
+      ctx.font      = `bold ${NAME_SZ}px monospace`
+      const pnW    = ctx.measureText(playerName).width
+      ctx.fillStyle = '#ffe600'
+      ctx.textAlign = 'left'
+      ctx.fillText(playerName, barX + BAR_W - pnW, nameY)
+      if (actorName) {
+        const aSZ  = Math.max(9, Math.floor(NAME_SZ * 0.82))
+        ctx.font      = `${aSZ}px monospace`
+        ctx.fillStyle = '#cccccc'
+        const anW  = ctx.measureText(`(${actorName}) `).width
+        ctx.fillText(`(${actorName}) `, barX + BAR_W - pnW - anW, nameY + (NAME_SZ - aSZ) / 2)
+      }
+    }
 
     ctx.restore()
   })
+
+  ctx.restore()  // fin slide
 
   // ── "Versus" centré ───────────────────────────────────────────────────────
   const VS_SZ = Math.max(18, Math.floor(H * 0.038))
@@ -410,11 +492,24 @@ function videoTimeToOutputMs (videoTime, cuts) {
 }
 
 // ── Main compiler ─────────────────────────────────────────────────────────────
-async function compileProject (project, videoPath, outputPath, onProgress) {
+async function compileProject (project, videoPath, outputPath, fightActors = [], onProgress) {
   const dataPath   = process.env.DATA_PATH || path.join(__dirname, '../../../../data')
   const soundPaths = ensureSounds(dataPath)
 
   const { width, height, fps, duration } = await getVideoInfo(videoPath)
+
+  // ── Pré-chargement des photos des acteurs ─────────────────────────────────
+  const actorData = {}
+  for (const player of project.players || []) {
+    const actor = findFightActor(player, fightActors)
+    let img = null
+    if (actor?.photo) {
+      try { img = await loadImage(actor.photo) } catch (e) {
+        console.warn(`[compiler] Photo non chargée pour ${player.name}:`, e.message)
+      }
+    }
+    actorData[player.id] = { img, actorName: actor?.name ?? null }
+  }
 
   const cuts = (project.cuts?.length)
     ? project.cuts.map(c => ({ start: Number(c.start), end: Number(c.end) }))
@@ -536,7 +631,7 @@ async function compileProject (project, videoPath, outputPath, onProgress) {
         acc += seg
       }
 
-      renderFrame(ctx, actual, elapsed, project, width, height, readyVideoTime, lifebarVideoTime)
+      renderFrame(ctx, actual, elapsed, project, width, height, readyVideoTime, lifebarVideoTime, actorData)
 
       const imgData = ctx.getImageData(0, 0, width, height)
       const buf     = Buffer.from(imgData.data.buffer)

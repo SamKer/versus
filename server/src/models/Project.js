@@ -1,11 +1,12 @@
 const mongoose = require('mongoose')
 
 const playerSchema = new mongoose.Schema({
-  id:      { type: String, required: true },
-  name:    { type: String, required: true },
-  color:   { type: String, default: '#00ff00' },
-  side:    { type: String, enum: ['left', 'right'], default: 'left' },
-  finalHp: { type: Number, default: 0, min: 0, max: 100 }
+  id:         { type: String, required: true },
+  name:       { type: String, required: true },
+  color:      { type: String, default: '#00ff00' },
+  side:       { type: String, enum: ['left', 'right'], default: 'left' },
+  finalHp:    { type: Number, default: 0, min: 0, max: 100 },
+  actorIndex: { type: Number, default: null }   // index dans fight.actors (0 ou 1)
 }, { _id: false })
 
 const eventSchema = new mongoose.Schema({

@@ -50,6 +50,7 @@
         <q-tab name="suggestions"  icon="add_comment"         label="Suggestions">
           <q-badge v-if="unreadSuggestions > 0" color="negative" floating rounded>{{ unreadSuggestions }}</q-badge>
         </q-tab>
+        <q-tab name="sons" icon="music_note" label="Sons" />
       </q-tabs>
 
       <!-- ══════════════════════════════════════
@@ -820,6 +821,102 @@
           </q-card-section>
         </q-card>
       </div>
+
+      <!-- ══════════════════════════════════════
+           ONGLET SONS
+      ══════════════════════════════════════ -->
+      <div v-show="tab === 'sons'">
+        <q-card class="bg-dark" flat bordered style="max-width:660px">
+          <q-card-section>
+            <div class="row items-center q-mb-md">
+              <div class="text-subtitle1 text-bold">
+                <q-icon name="music_note" class="q-mr-sm" />
+                Sons du jeu
+              </div>
+              <q-space />
+              <q-btn flat dense no-caps icon="add" label="Nouveau son" color="primary" @click="newSoundDialog = true" />
+            </div>
+            <div class="text-caption text-grey q-mb-md">
+              Enregistrez depuis le micro ou uploadez un fichier (MP3, WAV, OGG…). Le son custom remplace le son synthétisé dès la prochaine compilation.
+            </div>
+
+            <q-list separator>
+              <q-item v-for="s in sounds" :key="s.name" class="q-py-sm">
+                <q-item-section avatar>
+                  <q-avatar :color="s.predefined ? 'grey-9' : 'deep-purple-9'" text-color="white" icon="audiotrack" size="36px" />
+                </q-item-section>
+
+                <q-item-section>
+                  <q-item-label class="text-bold text-uppercase">{{ s.name }}</q-item-label>
+                  <q-item-label caption class="q-mt-xs">
+                    <q-badge :color="s.hasCustom ? 'positive' : (s.predefined ? 'grey-7' : 'deep-purple-7')" class="q-mr-sm">
+                      {{ s.hasCustom ? 'Custom' : (s.predefined ? 'Synthétisé' : 'Aucun fichier') }}
+                    </q-badge>
+                    <span v-if="s.hasCustom" class="text-grey-5 text-caption">{{ s.customUrl?.split('/').pop() }}</span>
+                  </q-item-label>
+                  <!-- Timer enregistrement -->
+                  <div v-if="recordingSound === s.name" class="row items-center q-mt-xs q-gutter-xs">
+                    <q-icon name="fiber_manual_record" color="negative" size="12px" class="sound-rec-pulse" />
+                    <span class="text-caption text-negative text-mono">{{ fmtRecTime(recordTimer) }}</span>
+                  </div>
+                  <!-- Preview enregistrement -->
+                  <div v-else-if="recordedBlobs[s.name]" class="row items-center q-mt-xs q-gutter-xs">
+                    <q-btn flat dense round icon="play_arrow" color="positive" size="sm" title="Écouter" @click="playRecorded(s.name)" />
+                    <q-btn flat dense round icon="check" color="positive" size="sm" title="Sauvegarder" :loading="uploadingSounds[s.name]" @click="confirmRecord(s.name)" />
+                    <q-btn flat dense round icon="close" color="grey" size="sm" title="Annuler" @click="discardRecord(s.name)" />
+                    <span class="text-caption text-grey-5">Enregistrement prêt</span>
+                  </div>
+                </q-item-section>
+
+                <q-item-section side>
+                  <div class="row q-gutter-xs items-center">
+                    <!-- État : en cours d'enregistrement -->
+                    <template v-if="recordingSound === s.name">
+                      <q-btn flat round dense icon="stop" color="negative" size="md" title="Arrêter" @click="stopRecord" />
+                    </template>
+                    <!-- État : normal (pas de preview en attente) -->
+                    <template v-else-if="!recordedBlobs[s.name]">
+                      <q-btn flat round dense icon="play_circle" color="primary" size="md" title="Écouter" :disable="!s.customUrl && !s.synthUrl" @click="playSound(s)" />
+                      <q-btn flat round dense icon="mic" color="teal" size="md" title="Enregistrer" :disable="!!recordingSound" @click="startRecord(s.name)" />
+                      <q-btn flat round dense icon="upload_file" color="orange" size="md" title="Importer un fichier" :loading="uploadingSounds[s.name]" @click="triggerSoundUpload(s.name)" />
+                      <q-btn v-if="s.hasCustom" flat round dense icon="restart_alt" color="negative" size="md" title="Réinitialiser" @click="resetSound(s.name)" />
+                      <q-btn v-if="!s.predefined" flat round dense icon="delete" color="negative" size="md" title="Supprimer" @click="deleteCustomSound(s.name)" />
+                      <input :ref="(el: any) => soundFileInputs[s.name] = el" type="file" accept="audio/*" style="display:none" @change="(e: any) => uploadSound(s.name, e)" />
+                    </template>
+                  </div>
+                </q-item-section>
+              </q-item>
+            </q-list>
+
+          </q-card-section>
+        </q-card>
+
+        <!-- Dialog : nouveau son -->
+        <q-dialog v-model="newSoundDialog" persistent>
+          <q-card class="bg-dark" style="min-width:340px">
+            <q-card-section class="row items-center q-pb-none">
+              <div class="text-subtitle1 text-bold">Nouveau son</div>
+              <q-space />
+              <q-btn flat round icon="close" v-close-popup @click="newSoundName = ''" />
+            </q-card-section>
+            <q-card-section>
+              <q-input
+                v-model="newSoundName"
+                label="Nom du son"
+                outlined dark dense autofocus
+                placeholder="ex: victory, intro, round1…"
+                hint="Lettres, chiffres, tirets et underscores"
+                @keyup.enter="confirmNewSound"
+              />
+            </q-card-section>
+            <q-card-actions align="right" class="q-px-md q-pb-md">
+              <q-btn flat label="Annuler" v-close-popup @click="newSoundName = ''" />
+              <q-btn color="primary" icon="add" label="Créer" :disable="!newSoundName.trim()" @click="confirmNewSound" />
+            </q-card-actions>
+          </q-card>
+        </q-dialog>
+      </div>
+
     </div>
 
     <!-- ══ DIALOG édition acteur ══ -->
@@ -988,7 +1085,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { useQuasar } from 'quasar'
 import { useAuthStore } from 'stores/auth'
@@ -996,14 +1093,15 @@ import { useFightsStore, type Fight, type Actor } from 'stores/fights'
 import { useActorsStore, type ActorProfile, type TmdbPersonResult } from 'stores/actors'
 import { api } from 'boot/axios'
 
-const $q        = useQuasar()
-const route     = useRoute()
+const $q      = useQuasar()
+const route   = useRoute()
+const apiBase = import.meta.env.VITE_API_URL || ''
 const authStore = useAuthStore()
 const fightsStore = useFightsStore()
 const actorsStore = useActorsStore()
 
 // ── Onglet actif
-const tab = ref<'scenes' | 'films' | 'acteurs' | 'choregraphes' | 'suggestions'>('scenes')
+const tab = ref<'scenes' | 'films' | 'acteurs' | 'choregraphes' | 'suggestions' | 'sons'>('scenes')
 
 // ── Classement ────────────────────────────────────────────────
 const fightSort = ref<'views' | 'date'>('views')
@@ -1123,6 +1221,7 @@ watch(tab, (newTab) => {
   if (newTab === 'choregraphes') fetchChoreos()
   if (newTab === 'acteurs')      actorsStore.fetchAll()
   if (newTab === 'suggestions')  fetchSuggestions()
+  if (newTab === 'sons')         loadSounds()
 })
 
 // ── Titre auto de la scène ────────────────────────────────────
@@ -1656,6 +1755,168 @@ async function openViewsHistory () {
   }
 }
 
+// ── Sons ──────────────────────────────────────────────────────
+interface SoundItem { name: string; predefined: boolean; hasCustom: boolean; customUrl: string | null; synthUrl: string | null }
+const sounds          = ref<SoundItem[]>([])
+const uploadingSounds = reactive<Record<string, boolean>>({})
+const soundFileInputs = reactive<Record<string, HTMLInputElement | null>>({})
+let   currentAudio: HTMLAudioElement | null = null
+
+// Enregistrement
+const recordingSound = ref<string | null>(null)
+const recordTimer    = ref(0)
+const recordedBlobs  = reactive<Record<string, Blob | null>>({})
+let   mediaRecorder: MediaRecorder | null = null
+let   recordChunks:  BlobPart[]  = []
+let   recordInterval = 0
+
+// Nouveau son
+const newSoundDialog = ref(false)
+const newSoundName   = ref('')
+
+async function loadSounds () {
+  try {
+    const { data } = await api.get('/api/sounds')
+    sounds.value = data
+  } catch { /* ignore */ }
+}
+
+function playSound (s: SoundItem) {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null }
+  const url = `${apiBase}${s.customUrl || s.synthUrl}`
+  currentAudio = new Audio(url)
+  currentAudio.play().catch(() => {})
+}
+
+function triggerSoundUpload (name: string) {
+  soundFileInputs[name]?.click()
+}
+
+async function uploadSound (name: string, e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file) return
+  uploadingSounds[name] = true
+  try {
+    const ext  = file.name.split('.').pop() || 'wav'
+    const data = await new Promise<string>(resolve => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.readAsDataURL(file)
+    })
+    await api.post(`/api/sounds/${name}`, { data, ext })
+    await loadSounds()
+    $q.notify({ type: 'positive', message: `Son "${name}" mis à jour` })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur lors de l\'upload' })
+  } finally {
+    uploadingSounds[name] = false
+    ;(e.target as HTMLInputElement).value = ''
+  }
+}
+
+async function resetSound (name: string) {
+  try {
+    await api.delete(`/api/sounds/${name}`)
+    await loadSounds()
+    $q.notify({ message: `Son "${name}" réinitialisé`, color: 'info' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur reset' })
+  }
+}
+
+async function deleteCustomSound (name: string) {
+  try {
+    await api.delete(`/api/sounds/${name}`)
+    sounds.value = sounds.value.filter(s => s.name !== name)
+    $q.notify({ message: `Son "${name}" supprimé`, color: 'info' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur suppression' })
+  }
+}
+
+// ── Enregistrement micro ──────────────────────────────────────
+async function startRecord (name: string) {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    recordChunks  = []
+    recordTimer.value = 0
+    clearInterval(recordInterval)
+    recordInterval = window.setInterval(() => { recordTimer.value++ }, 1000)
+
+    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
+    mediaRecorder = new MediaRecorder(stream, { mimeType })
+    mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordChunks.push(e.data) }
+    mediaRecorder.onstop = () => {
+      clearInterval(recordInterval)
+      stream.getTracks().forEach(t => t.stop())
+      recordedBlobs[name] = new Blob(recordChunks, { type: mimeType })
+    }
+    mediaRecorder.start()
+    recordingSound.value = name
+  } catch {
+    $q.notify({ type: 'negative', message: 'Impossible d\'accéder au microphone' })
+  }
+}
+
+function stopRecord () {
+  mediaRecorder?.stop()
+  recordingSound.value = null
+}
+
+function playRecorded (name: string) {
+  const blob = recordedBlobs[name]
+  if (!blob) return
+  if (currentAudio) { currentAudio.pause(); currentAudio = null }
+  const url = URL.createObjectURL(blob)
+  currentAudio = new Audio(url)
+  currentAudio.play().catch(() => {})
+}
+
+async function confirmRecord (name: string) {
+  const blob = recordedBlobs[name]
+  if (!blob) return
+  uploadingSounds[name] = true
+  try {
+    const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm'
+    const data = await new Promise<string>(resolve => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.readAsDataURL(blob)
+    })
+    await api.post(`/api/sounds/${name}`, { data, ext })
+    recordedBlobs[name] = null
+    await loadSounds()
+    $q.notify({ type: 'positive', message: `Son "${name}" enregistré` })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur sauvegarde' })
+  } finally {
+    uploadingSounds[name] = false
+  }
+}
+
+function discardRecord (name: string) {
+  recordedBlobs[name] = null
+}
+
+function fmtRecTime (s: number) {
+  const m = Math.floor(s / 60).toString().padStart(2, '0')
+  const sec = (s % 60).toString().padStart(2, '0')
+  return `${m}:${sec}`
+}
+
+// ── Nouveau son ───────────────────────────────────────────────
+function confirmNewSound () {
+  const name = newSoundName.value.trim().replace(/[^a-zA-Z0-9_-]/g, '_')
+  if (!name) return
+  if (sounds.value.find(s => s.name === name)) {
+    $q.notify({ type: 'warning', message: `Le son "${name}" existe déjà` })
+    return
+  }
+  sounds.value.push({ name, predefined: false, hasCustom: false, customUrl: null, synthUrl: null })
+  newSoundDialog.value = false
+  newSoundName.value   = ''
+}
+
 // ── Utilitaires ───────────────────────────────────────────────
 function formatViews (n?: number) {
   if (!n) return '–'
@@ -1664,3 +1925,13 @@ function formatViews (n?: number) {
   return String(n)
 }
 </script>
+
+<style scoped>
+.sound-rec-pulse {
+  animation: recpulse 1s ease-in-out infinite;
+}
+@keyframes recpulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.15; }
+}
+</style>

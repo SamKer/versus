@@ -4,7 +4,16 @@
     <!-- Hero -->
     <div class="text-center q-py-lg">
       <div class="versus-title text-h3 text-h2-md q-mb-xs">VERSUS</div>
-      <div class="text-caption text-subtitle1-md text-grey">Les plus beaux combats d'arts martiaux du cinéma</div>
+      <div class="text-caption text-subtitle1-md text-grey q-mb-md">Les plus beaux combats d'arts martiaux du cinéma</div>
+      <q-btn
+        to="/game"
+        unelevated
+        color="red-9"
+        text-color="white"
+        label="⚔ GAME"
+        class="game-btn"
+        style="font-family: 'Impact', 'Arial Black', sans-serif; letter-spacing: 0.1em; font-size: 1rem; padding: 10px 32px;"
+      />
     </div>
 
     <!-- Loading -->

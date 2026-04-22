@@ -11,6 +11,26 @@ const router = express.Router()
 // Progression en mémoire (évite les écritures DB à chaque frame)
 const exportProgress = new Map()
 
+// ── Helpers nommage ───────────────────────────────────────────────────────────
+function sanitizeName (str) {
+  return ((str || 'unknown')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')        // supprimer les accents
+    .replace(/[<>:"/\\|?*\x00-\x1f]/g, '')  // caractères interdits sur filesystem
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 60)) || 'unknown'
+}
+
+async function getSceneNumber (fight) {
+  const query = fight.movieTmdbId
+    ? { movieTmdbId: fight.movieTmdbId }
+    : { movieTitle: fight.movieTitle }
+  const all = await Fight.find(query).sort({ createdAt: 1 }).select('_id')
+  const idx = all.findIndex(f => f._id.toString() === fight._id.toString())
+  return idx >= 0 ? idx + 1 : 1
+}
+
 // ── Auth middleware ───────────────────────────────────────────────────────────
 function auth (req, res, next) {
   const token = req.headers.authorization?.split(' ')[1]
@@ -22,6 +42,26 @@ function auth (req, res, next) {
     res.status(401).json({ error: 'Invalid token' })
   }
 }
+
+// ── GET /api/projects/:fightId/export-exists  (public) ───────────────────
+router.get('/:fightId/export-exists', async (req, res) => {
+  try {
+    const dataPath = process.env.DATA_PATH || path.join(__dirname, '../../../../data')
+    const project  = await Project.findOne({ fightId: req.params.fightId }).lean()
+
+    // Chemin stocké en DB (nouveau ou ancien format)
+    if (project?.exportPath) {
+      const file = path.join(dataPath, project.exportPath.replace(/^\/media\//, ''))
+      return res.json({ exists: fs.existsSync(file), url: project.exportPath })
+    }
+
+    // Rétro-compat : ancien chemin projects/{fightId}/exported.mp4
+    const legacy = path.join(dataPath, 'projects', req.params.fightId, 'exported.mp4')
+    res.json({ exists: fs.existsSync(legacy), url: `/media/projects/${req.params.fightId}/exported.mp4` })
+  } catch (e) {
+    res.json({ exists: false })
+  }
+})
 
 // ── GET /api/projects/:fightId ─────────────────────────────────────────────
 router.get('/:fightId', auth, async (req, res) => {
@@ -73,19 +113,24 @@ router.post('/:fightId/export', auth, async (req, res) => {
       return res.status(404).json({ error: 'Projet introuvable — sauvegardez d\'abord.' })
     }
 
-    const outputDir  = path.join(dataPath, 'projects', req.params.fightId)
-    const outputPath = path.join(outputDir, 'exported.mp4')
+    const sceneNum   = await getSceneNumber(fight)
+    const folderName = sanitizeName(fight.movieTitle)
+    const sceneName  = sanitizeName(fight.title || fight.movieTitle)
+    const fileName   = `${sceneName} (Scene ${sceneNum}).mp4`
 
-    const fightId = req.params.fightId
+    const outputDir  = path.join(dataPath, 'exports', folderName)
+    const outputPath = path.join(outputDir, fileName)
+
+    const fightId    = req.params.fightId
+    const exportPath = `/media/exports/${folderName}/${fileName}`
     exportProgress.set(fightId, 0)
 
     // Fire and forget — client polls status
-    compileProject(project.toObject(), videoPath, outputPath, pct => {
+    compileProject(project.toObject(), videoPath, outputPath, fight.actors || [], pct => {
       exportProgress.set(fightId, pct)
     })
       .then(async () => {
         exportProgress.set(fightId, 100)
-        const exportPath = `/media/projects/${fightId}/exported.mp4`
         await Project.updateOne({ fightId }, { $set: { exportStatus: 'done', exportPath } })
         console.log(`✓ Export done: ${outputPath}`)
       })

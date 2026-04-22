@@ -12,7 +12,7 @@ app.use(cors({
   origin: process.env.FRONTEND_URL || 'http://localhost:8080',
   credentials: true
 }))
-app.use(express.json())
+app.use(express.json({ limit: '20mb' }))
 
 // Serve downloaded media files
 const dataPath   = process.env.DATA_PATH   || path.join(__dirname, '../../../data')
@@ -32,7 +32,7 @@ if (fs.existsSync(publicPath)) {
 }
 
 // Ensure data directories exist
-;['videos', 'photos'].forEach(dir =>
+;['videos', 'photos', 'exports'].forEach(dir =>
   fs.mkdirSync(path.join(dataPath, dir), { recursive: true })
 )
 
@@ -46,6 +46,7 @@ app.use('/api/movies', require('./routes/movies'))
 app.use('/api/choreographers', require('./routes/choreographers'))
 app.use('/api/suggestions',   require('./routes/suggestions'))
 app.use('/api/projects',      require('./routes/projects'))
+app.use('/api/sounds',        require('./routes/sounds'))
 
 // MongoDB
 const mongoUri = `mongodb://${process.env.MONGODB_USER}:${process.env.MONGODB_PASSWORD}@mongo:27017/${process.env.MONGODB_DBNAME}?authSource=admin`

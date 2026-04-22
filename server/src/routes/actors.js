@@ -73,6 +73,42 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 })
 
+// Public — acteurs ayant un combat en commun avec un acteur donné
+router.get('/:id/co-fighters', async (req, res) => {
+  try {
+    const actor = await Actor.findById(req.params.id)
+    if (!actor) return res.status(404).json({ error: 'Introuvable' })
+
+    const Fight = require('../models/Fight')
+    const query = actor.tmdbId
+      ? { $or: [{ 'actors.tmdbId': actor.tmdbId }, { 'actors.name': actor.name }] }
+      : { 'actors.name': actor.name }
+
+    const fights = await Fight.find(query)
+
+    const tmdbIds = new Set()
+    const names   = new Set()
+    for (const fight of fights) {
+      for (const a of fight.actors) {
+        if (actor.tmdbId && a.tmdbId === actor.tmdbId) continue
+        if (!actor.tmdbId && a.name === actor.name) continue
+        if (a.tmdbId) tmdbIds.add(a.tmdbId)
+        else names.add(a.name)
+      }
+    }
+
+    const orConds = []
+    if (tmdbIds.size) orConds.push({ tmdbId: { $in: [...tmdbIds] } })
+    if (names.size)   orConds.push({ name: { $in: [...names] } })
+    if (!orConds.length) return res.json([])
+
+    const coFighters = await Actor.find({ $or: orConds }).sort({ name: 1 })
+    res.json(coFighters)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Admin — mettre à jour
 router.put('/:id', authMiddleware, async (req, res) => {
   try {

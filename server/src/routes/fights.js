@@ -96,6 +96,46 @@ router.get('/', async (req, res) => {
   }
 })
 
+// Public — tous les combats d'un acteur donné
+router.get('/by-actor/:id', async (req, res) => {
+  try {
+    const actor = await Actor.findById(req.params.id)
+    if (!actor) return res.status(404).json({ error: 'Introuvable' })
+    const query = actor.tmdbId
+      ? { $or: [{ 'actors.tmdbId': actor.tmdbId }, { 'actors.name': actor.name }] }
+      : { 'actors.name': actor.name }
+    const fights = await Fight.find(query).sort({ createdAt: -1 })
+    res.json(fights)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// Public — combats contenant deux acteurs donnés (par _id Mongo)
+router.get('/with-actors', async (req, res) => {
+  const { a1, a2 } = req.query
+  if (!a1 || !a2) return res.status(400).json({ error: 'a1 et a2 requis' })
+  try {
+    const [actor1, actor2] = await Promise.all([
+      Actor.findById(a1),
+      Actor.findById(a2)
+    ])
+    if (!actor1 || !actor2) return res.json([])
+
+    const buildQuery = (a) => a.tmdbId
+      ? { $or: [{ 'actors.tmdbId': a.tmdbId }, { 'actors.name': a.name }] }
+      : { 'actors.name': a.name }
+
+    const q1 = buildQuery(actor1)
+    const q2 = buildQuery(actor2)
+
+    const fights = await Fight.find({ $and: [q1, q2] }).sort({ createdAt: -1 })
+    res.json(fights)
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Public — historique des vues d'un combat
 router.get('/:id/views-history', async (req, res) => {
   try {

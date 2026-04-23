@@ -246,16 +246,10 @@
               <!-- K.O. -->
               <div class="row items-center q-mb-xs">
                 <q-icon name="star" color="yellow" size="14px" class="q-mr-xs" />
-                <span class="text-caption text-grey-4" style="width:72px;font-size:10px">K.O.</span>
-                <div class="row col q-gutter-xs">
-                  <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
-                    icon="place" :label="p.name.slice(0,8)"
-                    :color="koEvent?.target === p.id ? 'yellow' : 'grey-6'"
-                    @click="setOutcomeEvent('ko', p.id)" />
-                  <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
-                </div>
+                <span class="text-caption text-grey-4 col" style="font-size:10px">K.O.</span>
                 <span v-if="koEvent" class="text-caption text-mono text-yellow q-mr-xs" style="font-size:10px">{{ fmtTime(koEvent.time) }}</span>
                 <q-btn v-if="koEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(koEvent.id)" />
+                <q-btn flat dense round icon="place" size="xs" color="yellow" @click="setOutcomeEvent('ko', '')" :title="koEvent ? 'Repositionner' : 'Poser ici'" />
               </div>
 
               <!-- DRAW -->
@@ -270,31 +264,19 @@
               <!-- DEATH -->
               <div class="row items-center q-mb-xs">
                 <q-icon name="dangerous" color="deep-purple-4" size="14px" class="q-mr-xs" />
-                <span class="text-caption text-grey-4" style="width:72px;font-size:10px">DEATH</span>
-                <div class="row col q-gutter-xs">
-                  <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
-                    icon="place" :label="p.name.slice(0,8)"
-                    :color="deathEvent?.target === p.id ? 'deep-purple-3' : 'grey-6'"
-                    @click="setOutcomeEvent('death', p.id)" />
-                  <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
-                </div>
+                <span class="text-caption text-grey-4 col" style="font-size:10px">DEATH</span>
                 <span v-if="deathEvent" class="text-caption text-mono text-deep-purple-3 q-mr-xs" style="font-size:10px">{{ fmtTime(deathEvent.time) }}</span>
                 <q-btn v-if="deathEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(deathEvent.id)" />
+                <q-btn flat dense round icon="place" size="xs" color="deep-purple-3" @click="setOutcomeEvent('death', '')" :title="deathEvent ? 'Repositionner' : 'Poser ici'" />
               </div>
 
               <!-- SURRENDER -->
               <div class="row items-center">
                 <q-icon name="outlined_flag" color="amber-6" size="14px" class="q-mr-xs" />
-                <span class="text-caption text-grey-4" style="width:72px;font-size:10px">SURRENDER</span>
-                <div class="row col q-gutter-xs">
-                  <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
-                    icon="place" :label="p.name.slice(0,8)"
-                    :color="surrenderEvent?.target === p.id ? 'amber-6' : 'grey-6'"
-                    @click="setOutcomeEvent('surrender', p.id)" />
-                  <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
-                </div>
+                <span class="text-caption text-grey-4 col" style="font-size:10px">SURRENDER</span>
                 <span v-if="surrenderEvent" class="text-caption text-mono text-amber-6 q-mr-xs" style="font-size:10px">{{ fmtTime(surrenderEvent.time) }}</span>
                 <q-btn v-if="surrenderEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(surrenderEvent.id)" />
+                <q-btn flat dense round icon="place" size="xs" color="amber-6" @click="setOutcomeEvent('surrender', '')" :title="surrenderEvent ? 'Repositionner' : 'Poser ici'" />
               </div>
 
             </div>

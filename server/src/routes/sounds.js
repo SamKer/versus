@@ -4,7 +4,7 @@ const fs      = require('fs')
 const jwt     = require('jsonwebtoken')
 
 const router     = express.Router()
-const SOUND_NAMES = ['ready', 'fight', 'ko', 'draw']
+const SOUND_NAMES = ['ready', 'fight', 'ko', 'draw', 'death', 'surrender']
 
 function soundsDir () {
   const dataPath = process.env.DATA_PATH || path.join(__dirname, '../../../../data')
@@ -63,7 +63,7 @@ router.get('/', (req, res) => {
 // ── POST /api/sounds/:name  (body: { data: base64, ext: 'mp3'|'wav'|… }) ──────
 router.post('/:name', auth, express.json({ limit: '20mb' }), (req, res) => {
   const { name } = req.params
-  if (!SOUND_NAMES.includes(name)) return res.status(400).json({ error: 'Son inconnu' })
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) return res.status(400).json({ error: 'Nom de son invalide' })
 
   const { data, ext = 'wav' } = req.body
   if (!data) return res.status(400).json({ error: 'Données manquantes' })
@@ -85,7 +85,7 @@ router.post('/:name', auth, express.json({ limit: '20mb' }), (req, res) => {
 // ── DELETE /api/sounds/:name ───────────────────────────────────────────────────
 router.delete('/:name', auth, (req, res) => {
   const { name } = req.params
-  if (!SOUND_NAMES.includes(name)) return res.status(400).json({ error: 'Son inconnu' })
+  if (!/^[a-zA-Z0-9_-]+$/.test(name)) return res.status(400).json({ error: 'Nom de son invalide' })
 
   const dir = soundsDir()
   if (fs.existsSync(dir)) {

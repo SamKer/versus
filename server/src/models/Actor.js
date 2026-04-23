@@ -6,7 +6,8 @@ const actorSchema = new mongoose.Schema({
   photo:        String,
   birthDate:    Date,
   placeOfBirth: String,
-  biography:    String
+  biography:    String,
+  soundUrl:     String
 }, {
   timestamps: true,
   collection: 'actors'

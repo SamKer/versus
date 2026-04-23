@@ -1,6 +1,9 @@
 const express = require('express')
+const path    = require('path')
+const fs      = require('fs')
 const authMiddleware = require('../middleware/auth')
 const Actor = require('../models/Actor')
+const Fight = require('../models/Fight')
 const { searchPerson, getPersonDetails } = require('../services/tmdb')
 
 const router = express.Router()
@@ -114,9 +117,69 @@ router.put('/:id', authMiddleware, async (req, res) => {
   try {
     const actor = await Actor.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
     if (!actor) return res.status(404).json({ error: 'Introuvable' })
+
+    // Propager nom + photo dans toutes les scènes qui référencent cet acteur (par tmdbId)
+    if (actor.tmdbId) {
+      const update = {}
+      if (actor.name)  update['actors.$[a].name']  = actor.name
+      if (actor.photo) update['actors.$[a].photo'] = actor.photo
+      if (Object.keys(update).length) {
+        await Fight.updateMany(
+          { 'actors.tmdbId': actor.tmdbId },
+          { $set: update },
+          { arrayFilters: [{ 'a.tmdbId': actor.tmdbId }] }
+        )
+      }
+    }
+
     res.json(actor)
   } catch (err) {
     res.status(400).json({ error: err.message })
+  }
+})
+
+// ── POST /api/actors/:id/sound ────────────────────────────────────────────────
+router.post('/:id/sound', authMiddleware, express.json({ limit: '20mb' }), async (req, res) => {
+  try {
+    const { data, ext = 'wav' } = req.body
+    if (!data) return res.status(400).json({ error: 'Données manquantes' })
+
+    const dataPath = process.env.DATA_PATH || path.join(__dirname, '../../../../data')
+    const dir      = path.join(dataPath, 'sounds', 'actors')
+    fs.mkdirSync(dir, { recursive: true })
+
+    // Supprimer l'ancienne version (toute extension)
+    for (const f of fs.readdirSync(dir)) {
+      if (f.startsWith(`${req.params.id}.`)) fs.unlinkSync(path.join(dir, f))
+    }
+
+    const fileName = `${req.params.id}.${ext}`
+    fs.writeFileSync(path.join(dir, fileName), Buffer.from(data, 'base64'))
+
+    const soundUrl = `/media/sounds/actors/${fileName}`
+    const actor    = await Actor.findByIdAndUpdate(req.params.id, { soundUrl }, { new: true })
+    if (!actor) return res.status(404).json({ error: 'Acteur introuvable' })
+
+    res.json({ ok: true, soundUrl })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
+  }
+})
+
+// ── DELETE /api/actors/:id/sound ─────────────────────────────────────────────
+router.delete('/:id/sound', authMiddleware, async (req, res) => {
+  try {
+    const dataPath = process.env.DATA_PATH || path.join(__dirname, '../../../../data')
+    const dir      = path.join(dataPath, 'sounds', 'actors')
+    if (fs.existsSync(dir)) {
+      for (const f of fs.readdirSync(dir)) {
+        if (f.startsWith(`${req.params.id}.`)) fs.unlinkSync(path.join(dir, f))
+      }
+    }
+    await Actor.findByIdAndUpdate(req.params.id, { $unset: { soundUrl: 1 } })
+    res.json({ ok: true })
+  } catch (err) {
+    res.status(500).json({ error: err.message })
   }
 })
 

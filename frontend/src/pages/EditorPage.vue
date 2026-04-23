@@ -223,6 +223,7 @@
               MARQUEURS HUD
             </div>
             <div v-show="!collapsed.hud">
+              <!-- Barres de vie -->
               <div class="row items-center q-mb-xs">
                 <q-icon name="favorite" color="yellow-6" size="14px" class="q-mr-xs" />
                 <span class="text-caption text-grey-4 col">Barres de vie</span>
@@ -230,33 +231,72 @@
                 <q-btn v-if="lifebarEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(lifebarEvent.id)" />
                 <q-btn flat dense round icon="place" size="xs" color="yellow-6" @click="setGlobalEvent('lifebar')" :title="lifebarEvent ? 'Repositionner' : 'Poser ici'" />
               </div>
-              <div class="row items-center">
+              <!-- READY -->
+              <div class="row items-center q-mb-sm">
                 <q-icon name="flag" color="green-5" size="14px" class="q-mr-xs" />
                 <span class="text-caption text-grey-4 col">READY</span>
                 <span v-if="readyEvent" class="text-caption text-mono text-green-5 q-mr-xs">{{ fmtTime(readyEvent.time) }}</span>
                 <q-btn v-if="readyEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(readyEvent.id)" />
                 <q-btn flat dense round icon="place" size="xs" color="green-5" @click="setGlobalEvent('ready')" :title="readyEvent ? 'Repositionner' : 'Poser ici'" />
               </div>
-            </div>
-          </q-card-section>
-        </q-card>
 
-        <!-- ── RÉSULTAT ───────────────────────────────────────────── -->
-        <q-card dark flat bordered>
-          <q-card-section class="q-pa-sm">
-            <div
-              class="text-caption text-bold text-grey-4 q-mb-sm cursor-pointer row items-center no-wrap"
-              @click="collapsed.outcome = !collapsed.outcome"
-            >
-              <q-icon :name="collapsed.outcome ? 'chevron_right' : 'expand_more'" size="14px" class="q-mr-xs" />
-              RÉSULTAT
-            </div>
-            <div v-show="!collapsed.outcome">
-              <div class="row q-gutter-sm items-center">
-                <q-radio v-model="project.outcome" val="ko"   label="K.O."  color="negative" dense dark class="text-caption" @update:model-value="scheduleAutoSave" />
-                <q-radio v-model="project.outcome" val="draw" label="DRAW"  color="grey-5"   dense dark class="text-caption" @update:model-value="scheduleAutoSave" />
-                <q-btn v-if="project.outcome" flat dense no-caps size="xs" icon="close" color="grey-6" label="Aucun" @click="() => { project.outcome = null; scheduleAutoSave() }" />
+              <!-- ── Résultat ── -->
+              <div class="text-caption text-grey-7 q-mb-xs" style="font-size:10px;border-top:1px solid #333;padding-top:6px">RÉSULTAT — cliquer un joueur pour poser ici</div>
+
+              <!-- K.O. -->
+              <div class="row items-center q-mb-xs">
+                <q-icon name="star" color="yellow" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-grey-4" style="width:72px;font-size:10px">K.O.</span>
+                <div class="row col q-gutter-xs">
+                  <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
+                    :label="p.name.slice(0,8)"
+                    :color="koEvent?.target === p.id ? 'yellow' : 'grey-6'"
+                    @click="setOutcomeEvent('ko', p.id)" />
+                  <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
+                </div>
+                <span v-if="koEvent" class="text-caption text-mono text-yellow q-mr-xs" style="font-size:10px">{{ fmtTime(koEvent.time) }}</span>
+                <q-btn v-if="koEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(koEvent.id)" />
               </div>
+
+              <!-- DRAW -->
+              <div class="row items-center q-mb-xs">
+                <q-icon name="remove" color="grey-4" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-grey-4 col" style="font-size:10px">DRAW</span>
+                <span v-if="drawEvent" class="text-caption text-mono text-grey-4 q-mr-xs" style="font-size:10px">{{ fmtTime(drawEvent.time) }}</span>
+                <q-btn v-if="drawEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(drawEvent.id)" />
+                <q-btn flat dense round icon="place" size="xs" color="grey-4" @click="setOutcomeEvent('draw', '')" :title="drawEvent ? 'Repositionner' : 'Poser ici'" />
+              </div>
+
+              <!-- DEATH -->
+              <div class="row items-center q-mb-xs">
+                <q-icon name="dangerous" color="deep-purple-4" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-grey-4" style="width:72px;font-size:10px">DEATH</span>
+                <div class="row col q-gutter-xs">
+                  <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
+                    :label="p.name.slice(0,8)"
+                    :color="deathEvent?.target === p.id ? 'deep-purple-3' : 'grey-6'"
+                    @click="setOutcomeEvent('death', p.id)" />
+                  <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
+                </div>
+                <span v-if="deathEvent" class="text-caption text-mono text-deep-purple-3 q-mr-xs" style="font-size:10px">{{ fmtTime(deathEvent.time) }}</span>
+                <q-btn v-if="deathEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(deathEvent.id)" />
+              </div>
+
+              <!-- SURRENDER -->
+              <div class="row items-center">
+                <q-icon name="outlined_flag" color="amber-6" size="14px" class="q-mr-xs" />
+                <span class="text-caption text-grey-4" style="width:72px;font-size:10px">SURRENDER</span>
+                <div class="row col q-gutter-xs">
+                  <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
+                    :label="p.name.slice(0,8)"
+                    :color="surrenderEvent?.target === p.id ? 'amber-6' : 'grey-6'"
+                    @click="setOutcomeEvent('surrender', p.id)" />
+                  <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
+                </div>
+                <span v-if="surrenderEvent" class="text-caption text-mono text-amber-6 q-mr-xs" style="font-size:10px">{{ fmtTime(surrenderEvent.time) }}</span>
+                <q-btn v-if="surrenderEvent" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(surrenderEvent.id)" />
+              </div>
+
             </div>
           </q-card-section>
         </q-card>
@@ -276,7 +316,6 @@
               <div v-for="player in project.players" :key="player.id" class="q-mb-sm">
                 <div class="row items-center justify-between q-mb-xs">
                   <span class="text-caption text-bold" :style="{ color: player.color }">{{ player.name }}</span>
-                  <q-btn flat dense round icon="sports_kabaddi" size="xs" color="yellow-7" title="KO" @click="addKoEvent(player.id)" />
                 </div>
                 <div class="row q-gutter-xs">
                   <q-btn
@@ -367,12 +406,10 @@ const project = reactive<{
   players: Array<{ id: string; name: string; color: string; side: 'left' | 'right'; finalHp: number; actorIndex: number | null }>
   events:  Array<{ id: string; time: number; type: string; target: string; damage: number }>
   cuts:    Array<{ start: number; end: number }>
-  outcome: 'ko' | 'draw' | null
 }>({
   players: [],
   events:  [],
   cuts:    [],
-  outcome: null
 })
 
 // ── Video refs ─────────────────────────────────────────────────────────────────
@@ -398,7 +435,7 @@ const exportProgress = ref(0)
 let   pollTimer    = 0
 
 // ── Collapsed sections ────────────────────────────────────────────────────────
-const collapsed = reactive({ players: false, hud: false, outcome: false, hits: false, events: false, cuts: false })
+const collapsed = reactive({ players: false, hud: false, hits: false, events: false, cuts: false })
 
 // ── Saving / dirty state ───────────────────────────────────────────────────────
 const saving  = ref(false)
@@ -492,7 +529,6 @@ async function loadProject () {
       project.players      = (data.players || []).map((p: any) => ({ finalHp: 0, ...p }))
       project.events       = data.events       || []
       project.cuts         = data.cuts         || []
-      project.outcome      = data.outcome      || null
       exportStatus.value   = data.exportStatus || 'idle'
       exportPath.value     = data.exportPath   || ''
       exportProgress.value = 0
@@ -554,7 +590,6 @@ function drawSF2Bars (
   elapsed?: number,
   events?: typeof project.events,
   videoTime?: number,
-  outcome?: typeof project.outcome,
   readyVideoTime?: number | null,
   lifebarVideoTime?: number | null
 ) {
@@ -640,15 +675,20 @@ function drawSF2Bars (
   const evts = events ?? []
   const vt   = videoTime ?? 0
 
-  // ── K.O. / DRAW depuis project.outcome ──────────────────────────────────
-  if (outcome) {
-    const lastEvtTime = evts.length > 0 ? Math.max(...evts.map(e => e.time)) : 0
-    const showAlpha   = Math.min(1, Math.max(0, (vt - lastEvtTime - 0.2) / 0.3))
+  // ── K.O. / DRAW / DEATH / SURRENDER depuis les events ────────────────────
+  const OUTCOME_TYPES = new Set(['ko', 'draw', 'death', 'surrender'])
+  const outcomeEvt = evts.filter(e => OUTCOME_TYPES.has(e.type) && e.time <= vt)
+    .sort((a, b) => b.time - a.time)[0]
+  if (outcomeEvt) {
+    const outcome   = outcomeEvt.type
+    const showAlpha = Math.min(1, Math.max(0, (vt - outcomeEvt.time) / 0.3))
     if (showAlpha > 0) {
       const KO_SZ  = Math.max(20, Math.floor(H * 0.052))
       const koY    = vsY + Math.floor(VS_SZ * 0.5) + KO_SZ * 0.75
-      const text   = outcome === 'ko' ? 'K.O.' : 'DRAW'
-      const color  = outcome === 'ko' ? '#ff2200' : '#ffffff'
+      const OUTCOME_TEXT:  Record<string,string> = { ko: 'K.O.', draw: 'DRAW', death: 'DEATH', surrender: 'SURRENDER' }
+      const OUTCOME_COLOR: Record<string,string> = { ko: '#ff2200', draw: '#ffffff', death: '#9c27b0', surrender: '#ff9800' }
+      const text  = OUTCOME_TEXT[outcome]  ?? outcome.toUpperCase()
+      const color = OUTCOME_COLOR[outcome] ?? '#ffffff'
       ctx.save()
       ctx.globalAlpha  = showAlpha
       ctx.font         = `bold italic ${KO_SZ}px serif`
@@ -748,12 +788,13 @@ function drawOverlay () {
   // HP réelle au timecode courant
   const actualHp: Record<string, number> = {}
   project.players.forEach(p => { actualHp[p.id] = 100 })
+  const ZERO_HP = new Set(['ko', 'death', 'surrender'])
   project.events
-    .filter(e => e.time <= t && e.type !== 'ko')
+    .filter(e => e.time <= t && !ZERO_HP.has(e.type))
     .sort((a, b) => a.time - b.time)
     .forEach(e => { actualHp[e.target] = Math.max(0, (actualHp[e.target] ?? 100) - e.damage) })
   project.events
-    .filter(e => e.time <= t && e.type === 'ko')
+    .filter(e => e.time <= t && ZERO_HP.has(e.type))
     .forEach(e => { actualHp[e.target] = 0 })
 
   // Lerp animatedHp → actualHp ; déclenche shake si HP diminue
@@ -773,7 +814,7 @@ function drawOverlay () {
   const elapsed = computeElapsed(t, project.cuts)
   const readyEv   = project.events.find(e => e.type === 'ready')
   const lifebarEv = project.events.find(e => e.type === 'lifebar')
-  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now, elapsed, project.events, t, project.outcome,
+  drawSF2Bars(ctx, W, H, project.players, animatedHp, shakeTimers, now, elapsed, project.events, t,
     readyEv   ? readyEv.time   : null,
     lifebarEv ? lifebarEv.time : null
   )
@@ -855,6 +896,20 @@ function playerName (id: string) {
   return project.players.find(p => p.id === id)?.name ?? id
 }
 
+function setOutcomeEvent (type: string, targetId: string) {
+  // Un seul event de ce type (outcome unique), on remplace s'il existe déjà
+  const i = project.events.findIndex(e => e.type === type)
+  if (i >= 0) project.events.splice(i, 1)
+  project.events.push({
+    id:     crypto.randomUUID(),
+    time:   Math.round(currentTime.value * 100) / 100,
+    type,
+    target: targetId,
+    damage: 0
+  })
+  scheduleAutoSave()
+}
+
 function assignActor (player: typeof project.players[0], ai: number) {
   player.actorIndex = ai
   const actor = fight.value?.actors?.[ai]
@@ -869,7 +924,7 @@ function recomputeDamages () {
   project.players.forEach(player => {
     const totalDamage = 100 - (player.finalHp ?? 0)
     const hitEvents   = project.events.filter(e =>
-      e.target === player.id && e.type !== 'ko'
+      e.target === player.id && !['ko', 'death', 'surrender'].includes(e.type)
     )
     const totalWeight = hitEvents.reduce((sum, e) => sum + (HIT_WEIGHTS[e.type] ?? 0), 0)
     hitEvents.forEach(e => {
@@ -877,9 +932,6 @@ function recomputeDamages () {
         ? Math.round(totalDamage * (HIT_WEIGHTS[e.type] ?? 0) / totalWeight * 100) / 100
         : 0
     })
-    project.events
-      .filter(e => e.target === player.id && e.type === 'ko')
-      .forEach(e => { e.damage = 0 })
   })
 }
 
@@ -890,8 +942,12 @@ watch(
 )
 
 // ── Events globaux (marqueurs uniques) ────────────────────────────────────────
-const lifebarEvent = computed(() => project.events.find(e => e.type === 'lifebar') ?? null)
-const readyEvent   = computed(() => project.events.find(e => e.type === 'ready')   ?? null)
+const lifebarEvent   = computed(() => project.events.find(e => e.type === 'lifebar')   ?? null)
+const readyEvent     = computed(() => project.events.find(e => e.type === 'ready')     ?? null)
+const koEvent        = computed(() => project.events.find(e => e.type === 'ko')        ?? null)
+const drawEvent      = computed(() => project.events.find(e => e.type === 'draw')      ?? null)
+const deathEvent     = computed(() => project.events.find(e => e.type === 'death')     ?? null)
+const surrenderEvent = computed(() => project.events.find(e => e.type === 'surrender') ?? null)
 
 function setGlobalEvent (type: 'ready' | 'lifebar') {
   const i = project.events.findIndex(e => e.type === type)
@@ -926,19 +982,6 @@ function addHitEvent (attackerId: string, type: string) {
   scheduleAutoSave()
 }
 
-function addKoEvent (attackerId: string) {
-  // A KO → B reçoit
-  const target = project.players.find(p => p.id !== attackerId)
-  if (!target) return
-  project.events.push({
-    id:     crypto.randomUUID(),
-    time:   Math.round(currentTime.value * 100) / 100,
-    type:   'ko',
-    target: target.id,
-    damage: 0
-  })
-  scheduleAutoSave()
-}
 
 function removeEvent (id: string) {
   const i = project.events.findIndex(e => e.id === id)
@@ -956,8 +999,10 @@ function eventIcon (type: string) {
     kick_m:  'sports_martial_arts',
     kick_s:  'sports_martial_arts',
     special: 'bolt',
-    ko:      'star',
-    block:   'shield',
+    ko:        'star',
+    death:     'dangerous',
+    surrender: 'outlined_flag',
+    block:     'shield',
     hit:     'sports_martial_arts',
     ready:   'flag',
     lifebar: 'favorite',
@@ -974,8 +1019,10 @@ function eventColor (type: string) {
     kick_m:  'amber-5',
     kick_s:  'deep-orange-5',
     special: 'deep-purple-3',
-    ko:      'yellow',
-    block:   'grey-5',
+    ko:        'yellow',
+    death:     'deep-purple-4',
+    surrender: 'amber-6',
+    block:     'grey-5',
     hit:     'orange',
     ready:   'green-5',
     lifebar: 'yellow-6',
@@ -992,8 +1039,10 @@ function eventLabel (type: string) {
     kick_m:  'Pied moyen',
     kick_s:  'Pied fort',
     special: 'Coup spécial',
-    ko:      'KO',
-    block:   'Blocage',
+    ko:        'KO',
+    death:     'Death',
+    surrender: 'Surrender',
+    block:     'Blocage',
     hit:     'Hit',
     ready:   'READY',
     lifebar: 'Barres de vie',
@@ -1010,7 +1059,6 @@ async function saveProject (silent = false) {
       players: project.players,
       events:  project.events,
       cuts:    project.cuts,
-      outcome: project.outcome
     })
     isDirty.value = false
     if (!silent) $q.notify({ type: 'positive', message: 'Projet sauvegardé', timeout: 1500 })
@@ -1162,7 +1210,9 @@ watch(videoSrc, async () => {
   &.kick_m  { background: #ffca28; }
   &.kick_s  { background: #ff7043; }
   &.special { background: #b39ddb; }
-  &.ko      { background: #ffeb3b; }
+  &.ko        { background: #ffeb3b; }
+  &.death     { background: #9c27b0; }
+  &.surrender { background: #ff9800; }
   // Rétro-compat
   &.block   { background: #78909c; }
   &.hit     { background: #ff9800; }

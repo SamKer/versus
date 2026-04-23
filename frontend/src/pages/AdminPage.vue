@@ -959,6 +959,40 @@
             rows="5"
             autogrow
           />
+          <!-- Son de l'acteur -->
+          <div class="q-pt-xs">
+            <div class="text-caption text-grey-5 q-mb-xs">Son / Voix</div>
+            <div class="row items-center q-gutter-xs">
+              <q-badge :color="actorForm.soundUrl ? 'positive' : 'grey-8'" class="q-mr-xs">
+                {{ actorForm.soundUrl ? 'Son enregistré' : 'Aucun son' }}
+              </q-badge>
+
+              <!-- En cours d'enregistrement -->
+              <template v-if="actorSoundRecording">
+                <q-icon name="fiber_manual_record" color="negative" size="12px" class="sound-rec-pulse" />
+                <span class="text-caption text-negative text-mono q-mr-xs">{{ fmtRecTime(actorSoundTimer) }}</span>
+                <q-btn flat round dense icon="stop" color="negative" size="sm" title="Arrêter" @click="stopActorRecord" />
+              </template>
+
+              <!-- Preview en attente -->
+              <template v-else-if="actorSoundBlob">
+                <q-btn flat round dense icon="play_arrow" color="positive" size="sm" title="Écouter" @click="playActorSound" />
+                <q-btn flat round dense icon="check" color="positive" size="sm" title="Sauvegarder" :loading="actorSoundUploading" @click="confirmActorRecord" />
+                <q-btn flat round dense icon="close" color="grey" size="sm" title="Annuler" @click="actorSoundBlob = null" />
+                <span class="text-caption text-grey-5">Prêt</span>
+              </template>
+
+              <!-- État normal -->
+              <template v-else>
+                <q-btn v-if="actorForm.soundUrl" flat round dense icon="play_circle" color="primary" size="sm" title="Écouter" @click="playActorSound" />
+                <q-btn flat round dense icon="mic" color="teal" size="sm" title="Enregistrer" @click="startActorRecord" />
+                <q-btn flat round dense icon="upload_file" color="orange" size="sm" title="Importer un fichier" :loading="actorSoundUploading" @click="actorFileInput?.click()" />
+                <q-btn v-if="actorForm.soundUrl" flat round dense icon="delete" color="negative" size="sm" title="Supprimer" @click="deleteActorSound" />
+                <input ref="actorFileInput" type="file" accept="audio/*" style="display:none" @change="uploadActorSoundFile" />
+              </template>
+            </div>
+          </div>
+
         </q-card-section>
 
         <q-card-actions align="right" class="q-px-md q-pb-md">
@@ -1146,8 +1180,119 @@ const actorDialog        = ref(false)
 const savingActor        = ref(false)
 const editingActorId     = ref<string | null>(null)
 const actorForm          = ref<Partial<ActorProfile>>({
-  name: '', photo: '', birthDate: '', placeOfBirth: '', biography: ''
+  name: '', photo: '', birthDate: '', placeOfBirth: '', biography: '', soundUrl: ''
 })
+
+// ── Son acteur (dialog) ───────────────────────────────────────
+const actorSoundRecording = ref(false)
+const actorSoundTimer     = ref(0)
+const actorSoundBlob      = ref<Blob | null>(null)
+const actorSoundUploading = ref(false)
+const actorFileInput      = ref<HTMLInputElement | null>(null)
+let   actorMediaRecorder: MediaRecorder | null = null
+let   actorRecordChunks:  BlobPart[] = []
+let   actorRecordInterval = 0
+
+async function startActorRecord () {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    $q.notify({ type: 'negative', message: 'Micro non disponible (HTTPS requis hors localhost)' }); return
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+    actorRecordChunks = []
+    actorSoundTimer.value = 0
+    clearInterval(actorRecordInterval)
+    actorRecordInterval = window.setInterval(() => { actorSoundTimer.value++ }, 1000)
+    const mimeType = bestAudioMime()
+    const options  = mimeType ? { mimeType } : {}
+    actorMediaRecorder = new MediaRecorder(stream, options)
+    const usedMime = actorMediaRecorder.mimeType || mimeType || 'audio/webm'
+    actorMediaRecorder.ondataavailable = e => { if (e.data.size > 0) actorRecordChunks.push(e.data) }
+    actorMediaRecorder.onstop = () => {
+      clearInterval(actorRecordInterval)
+      stream.getTracks().forEach(t => t.stop())
+      actorSoundBlob.value = new Blob(actorRecordChunks, { type: usedMime })
+    }
+    actorMediaRecorder.start()
+    actorSoundRecording.value = true
+  } catch (err: any) {
+    clearInterval(actorRecordInterval)
+    const msg = err?.name === 'NotAllowedError' ? 'Permission micro refusée'
+              : err?.name === 'NotFoundError'   ? 'Aucun microphone détecté'
+              : `Erreur micro : ${err?.message ?? err}`
+    $q.notify({ type: 'negative', message: msg })
+  }
+}
+
+function stopActorRecord () {
+  actorMediaRecorder?.stop()
+  actorSoundRecording.value = false
+}
+
+function playActorSound () {
+  if (currentAudio) { currentAudio.pause(); currentAudio = null }
+  const src = actorSoundBlob.value
+    ? URL.createObjectURL(actorSoundBlob.value)
+    : actorForm.value.soundUrl ? `${apiBase}${actorForm.value.soundUrl}` : null
+  if (!src) return
+  currentAudio = new Audio(src)
+  currentAudio.play().catch(() => {})
+}
+
+async function confirmActorRecord () {
+  const blob = actorSoundBlob.value
+  if (!blob || !editingActorId.value) return
+  actorSoundUploading.value = true
+  try {
+    const ext  = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'mp4' : 'webm'
+    const data = await new Promise<string>(resolve => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.readAsDataURL(blob)
+    })
+    const { data: res } = await api.post(`/api/actors/${editingActorId.value}/sound`, { data, ext })
+    actorForm.value.soundUrl = res.soundUrl
+    actorSoundBlob.value = null
+    $q.notify({ type: 'positive', message: 'Son enregistré !' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur sauvegarde son' })
+  } finally {
+    actorSoundUploading.value = false
+  }
+}
+
+async function uploadActorSoundFile (e: Event) {
+  const file = (e.target as HTMLInputElement).files?.[0]
+  if (!file || !editingActorId.value) return
+  actorSoundUploading.value = true
+  try {
+    const ext  = file.name.split('.').pop() || 'wav'
+    const data = await new Promise<string>(resolve => {
+      const reader = new FileReader()
+      reader.onload = () => resolve((reader.result as string).split(',')[1])
+      reader.readAsDataURL(file)
+    })
+    const { data: res } = await api.post(`/api/actors/${editingActorId.value}/sound`, { data, ext })
+    actorForm.value.soundUrl = res.soundUrl
+    $q.notify({ type: 'positive', message: 'Son importé !' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur import son' })
+  } finally {
+    actorSoundUploading.value = false
+    ;(e.target as HTMLInputElement).value = ''
+  }
+}
+
+async function deleteActorSound () {
+  if (!editingActorId.value) return
+  try {
+    await api.delete(`/api/actors/${editingActorId.value}/sound`)
+    actorForm.value.soundUrl = ''
+    $q.notify({ message: 'Son supprimé', color: 'info' })
+  } catch {
+    $q.notify({ type: 'negative', message: 'Erreur suppression son' })
+  }
+}
 
 // ── Films ──────────────────────────────────────────────────────
 interface MovieItem { _id: string; tmdbId?: number; title: string; year?: number; poster?: string; choreographer?: string }
@@ -1617,8 +1762,13 @@ function openActorEdit (actor: ActorProfile) {
       ? new Date(actor.birthDate).toISOString().slice(0, 10)
       : '',
     placeOfBirth: actor.placeOfBirth ?? '',
-    biography:    actor.biography ?? ''
+    biography:    actor.biography ?? '',
+    soundUrl:     actor.soundUrl ?? ''
   }
+  // Réinitialiser l'état enregistrement
+  actorSoundBlob.value      = null
+  actorSoundRecording.value = false
+  actorSoundTimer.value     = 0
   actorDialog.value = true
 }
 
@@ -1835,26 +1985,44 @@ async function deleteCustomSound (name: string) {
 }
 
 // ── Enregistrement micro ──────────────────────────────────────
+function bestAudioMime (): string {
+  const candidates = ['audio/webm;codecs=opus', 'audio/webm', 'audio/ogg;codecs=opus', 'audio/ogg', 'audio/mp4']
+  return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? ''
+}
+
 async function startRecord (name: string) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    $q.notify({ type: 'negative', message: 'Micro non disponible (HTTPS requis hors localhost)' })
+    return
+  }
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    recordChunks  = []
+    recordChunks = []
     recordTimer.value = 0
     clearInterval(recordInterval)
     recordInterval = window.setInterval(() => { recordTimer.value++ }, 1000)
 
-    const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
-    mediaRecorder = new MediaRecorder(stream, { mimeType })
+    const mimeType = bestAudioMime()
+    const options  = mimeType ? { mimeType } : {}
+    mediaRecorder  = new MediaRecorder(stream, options)
+    const usedMime = mediaRecorder.mimeType || mimeType || 'audio/webm'
+
     mediaRecorder.ondataavailable = e => { if (e.data.size > 0) recordChunks.push(e.data) }
     mediaRecorder.onstop = () => {
       clearInterval(recordInterval)
       stream.getTracks().forEach(t => t.stop())
-      recordedBlobs[name] = new Blob(recordChunks, { type: mimeType })
+      recordedBlobs[name] = new Blob(recordChunks, { type: usedMime })
     }
     mediaRecorder.start()
     recordingSound.value = name
-  } catch {
-    $q.notify({ type: 'negative', message: 'Impossible d\'accéder au microphone' })
+  } catch (err: any) {
+    clearInterval(recordInterval)
+    const msg = err?.name === 'NotAllowedError'
+      ? 'Permission micro refusée'
+      : err?.name === 'NotFoundError'
+        ? 'Aucun microphone détecté'
+        : `Erreur micro : ${err?.message ?? err}`
+    $q.notify({ type: 'negative', message: msg })
   }
 }
 
@@ -1877,7 +2045,7 @@ async function confirmRecord (name: string) {
   if (!blob) return
   uploadingSounds[name] = true
   try {
-    const ext  = blob.type.includes('ogg') ? 'ogg' : 'webm'
+    const ext  = blob.type.includes('ogg') ? 'ogg' : blob.type.includes('mp4') ? 'mp4' : 'webm'
     const data = await new Promise<string>(resolve => {
       const reader = new FileReader()
       reader.onload = () => resolve((reader.result as string).split(',')[1])

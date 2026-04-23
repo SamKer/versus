@@ -134,6 +134,43 @@ function genKo (sr = 44100) {
   return makeWav(s, sr)
 }
 
+function genDeath (sr = 44100) {
+  // Impact sourd + résonance grave descendante
+  const s = new Float32Array(Math.ceil(1.6 * sr))
+  // Thud (0–0.08s)
+  for (let i = 0; i < Math.floor(0.08 * sr); i++) {
+    const t = i / sr
+    s[i] = Math.exp(-t * 40) * 0.7 * Math.sin(2 * Math.PI * (120 - 600 * t) * t)
+  }
+  // Résonance grave (0.05–1.4s), 80Hz descendant vers 50Hz
+  for (let i = Math.floor(0.05 * sr); i < Math.floor(1.4 * sr); i++) {
+    const t = (i / sr) - 0.05
+    const pitch = 80 - t * 18
+    const env = Math.min(t / 0.05, 1) * Math.exp(-t * 1.8)
+    let v = 0
+    for (let k = 1; k <= 4; k++) v += (1 / k) * Math.sin(2 * Math.PI * pitch * k * t)
+    s[i] += env * 0.45 * (v * 0.7 + 0.3 * Math.sin(2 * Math.PI * 200 * t))
+  }
+  return makeWav(s, sr)
+}
+
+function genSurrender (sr = 44100) {
+  // Mélodie descendante triste (tierce mineure)
+  const s = new Float32Array(Math.ceil(1.4 * sr))
+  const notes = [{ f: 350, start: 0, dur: 0.45 }, { f: 295, start: 0.48, dur: 0.45 }, { f: 220, start: 0.96, dur: 0.44 }]
+  for (const { f, start, dur } of notes) {
+    const s0 = Math.floor(start * sr), s1 = Math.floor((start + dur) * sr)
+    for (let i = s0; i < s1; i++) {
+      const t = (i / sr) - start
+      const env = Math.min(t / 0.04, 1) * Math.exp(-t * 3.5)
+      let v = 0
+      for (let k = 1; k <= 5; k++) v += (1 / k) * Math.sin(2 * Math.PI * f * k * t)
+      s[i] += env * 0.38 * (v * 0.6 + 0.25 * Math.sin(2 * Math.PI * f * 1.5 * t))
+    }
+  }
+  return makeWav(s, sr)
+}
+
 function genDraw (sr = 44100) {
   // "DRAW" — deux tons plats, neutre
   const s = new Float32Array(Math.ceil(1.1 * sr))
@@ -160,10 +197,12 @@ function ensureSounds (dataPath) {
   fs.mkdirSync(dir, { recursive: true })
 
   const entries = [
-    { name: 'ready', text: 'ready', gen: genReady },
-    { name: 'fight', text: 'fight', gen: genFight },
-    { name: 'ko',    text: 'K. O.', gen: genKo    },
-    { name: 'draw',  text: 'draw',  gen: genDraw   },
+    { name: 'ready',     text: 'ready',     gen: genReady     },
+    { name: 'fight',     text: 'fight',     gen: genFight     },
+    { name: 'ko',        text: 'K. O.',     gen: genKo        },
+    { name: 'draw',      text: 'draw',      gen: genDraw      },
+    { name: 'death',     text: 'death',     gen: genDeath     },
+    { name: 'surrender', text: 'surrender', gen: genSurrender },
   ]
 
   const p = {}
@@ -209,19 +248,21 @@ function findFightActor (player, fightActors) {
   return fightActors[idx] ?? null
 }
 
+const ZERO_HP_TYPES = new Set(['ko', 'death', 'surrender'])
+
 function getAnimatedHp (time, events, playerId) {
   let hp = 100
   const hits = (events || [])
-    .filter(e => e.target === playerId && e.type !== 'ko' && e.time <= time)
+    .filter(e => e.target === playerId && !ZERO_HP_TYPES.has(e.type) && e.time <= time)
     .sort((a, b) => a.time - b.time)
   for (const e of hits) {
     const progress = Math.min(1, (time - e.time) / ANIM_DURATION)
     hp = Math.max(0, hp - e.damage * progress)
   }
-  const kos = (events || []).filter(e => e.target === playerId && e.type === 'ko' && e.time <= time)
-  if (kos.length > 0) {
-    const koTime  = Math.max(...kos.map(k => k.time))
-    const progress = Math.min(1, (time - koTime) / ANIM_DURATION)
+  const finishers = (events || []).filter(e => e.target === playerId && ZERO_HP_TYPES.has(e.type) && e.time <= time)
+  if (finishers.length > 0) {
+    const finishTime = Math.max(...finishers.map(k => k.time))
+    const progress   = Math.min(1, (time - finishTime) / ANIM_DURATION)
     hp = hp * (1 - progress)
   }
   return Math.max(0, hp)
@@ -263,10 +304,10 @@ function renderFrame (ctx, videoTime, elapsed, project, w, h, readyVideoTime = n
     shake[p.id] = getShakeOffset(videoTime, project.events, p.id)
   })
 
-  drawHUD(ctx, w, h, project.players, hp, shake, elapsed, project.events, videoTime, project.outcome, readyVideoTime, lifebarVideoTime, actorData)
+  drawHUD(ctx, w, h, project.players, hp, shake, elapsed, project.events, videoTime, readyVideoTime, lifebarVideoTime, actorData)
 }
 
-function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, events = [], videoTime = 0, outcome = null, readyVideoTime = null, lifebarVideoTime = null, actorData = {}) {
+function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, events = [], videoTime = 0, readyVideoTime = null, lifebarVideoTime = null, actorData = {}) {
   if (lifebarVideoTime !== null && videoTime < lifebarVideoTime) return
 
   const BORDER  = 2
@@ -402,15 +443,21 @@ function drawHUD (ctx, W, H, players, hp, shakeOffsets = {}, elapsed = -1, event
   ctx.fillText('Versus', 0, 0)
   ctx.restore()
 
-  // ── K.O. / DRAW depuis project.outcome ───────────────────────────────────
-  if (outcome) {
-    const lastEvtTime = events.length > 0 ? Math.max(...events.map(e => e.time)) : 0
-    const showAlpha   = Math.min(1, Math.max(0, (videoTime - lastEvtTime - 0.2) / 0.3))
+  // ── K.O. / DRAW / DEATH / SURRENDER depuis les events ────────────────────
+  const OUTCOME_TYPES = new Set(['ko', 'draw', 'death', 'surrender'])
+  const outcomeEvt = [...events]
+    .filter(e => OUTCOME_TYPES.has(e.type) && e.time <= videoTime)
+    .sort((a, b) => b.time - a.time)[0]
+  if (outcomeEvt) {
+    const outcome   = outcomeEvt.type
+    const showAlpha = Math.min(1, Math.max(0, (videoTime - outcomeEvt.time) / 0.3))
     if (showAlpha > 0) {
       const KO_SZ  = Math.max(20, Math.floor(H * 0.052))
       const koY    = vsY + Math.floor(VS_SZ * 0.5) + KO_SZ * 0.75
-      const text   = outcome === 'ko' ? 'K.O.' : 'DRAW'
-      const color  = outcome === 'ko' ? '#ff2200' : '#ffffff'
+      const OUTCOME_TEXT  = { ko: 'K.O.', draw: 'DRAW', death: 'DEATH', surrender: 'SURRENDER' }
+      const OUTCOME_COLOR = { ko: '#ff2200', draw: '#ffffff', death: '#9c27b0', surrender: '#ff9800' }
+      const text  = OUTCOME_TEXT[outcome]  ?? outcome.toUpperCase()
+      const color = OUTCOME_COLOR[outcome] ?? '#ffffff'
       ctx.save()
       ctx.globalAlpha  = showAlpha
       ctx.font         = `bold italic ${KO_SZ}px serif`
@@ -531,14 +578,15 @@ async function compileProject (project, videoPath, outputPath, fightActors = [],
   const readyMs    = rawReadyMs >= 0 ? rawReadyMs : 1000
   const fightMs    = readyMs + 1000
 
-  // Son de fin (KO ou DRAW) calé sur le dernier événement de combat
-  const combatEvts  = allEvts.filter(e => e.type !== 'ready' && e.type !== 'lifebar')
-  const lastEvtTime = combatEvts.length > 0 ? Math.max(...combatEvts.map(e => e.time)) : -1
-  const outcomeMs   = (project.outcome && lastEvtTime >= 0)
-    ? Math.max(0, videoTimeToOutputMs(lastEvtTime, cuts) + 200)
+  // Son de fin (KO/DRAW/DEATH/SURRENDER) calé sur le marqueur event
+  const OUTCOME_TYPES = new Set(['ko', 'draw', 'death', 'surrender'])
+  const outcomeEvt  = [...allEvts].filter(e => OUTCOME_TYPES.has(e.type)).sort((a, b) => b.time - a.time)[0]
+  const outcomeMs   = outcomeEvt
+    ? Math.max(0, videoTimeToOutputMs(outcomeEvt.time, cuts))
     : -1
   const hasOutcome  = outcomeMs >= 0
-  const outcomePath = project.outcome === 'draw' ? soundPaths.draw : soundPaths.ko
+  const OUTCOME_SOUND = { ko: 'ko', draw: 'draw', death: 'death', surrender: 'surrender' }
+  const outcomePath = outcomeEvt ? (soundPaths[OUTCOME_SOUND[outcomeEvt.type]] ?? soundPaths.ko) : soundPaths.ko
 
   // Indices des inputs son dans ffmpeg : 2=ready, 3=fight, [4=outcome]
   const soundInputArgs = [

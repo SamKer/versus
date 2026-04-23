@@ -10,6 +10,7 @@ export interface ActorProfile {
   birthDate?: string | null
   placeOfBirth?: string | null
   biography?: string | null
+  soundUrl?:  string | null
   createdAt?: string
   updatedAt?: string
 }

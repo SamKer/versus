@@ -186,6 +186,7 @@ interface FightOption {
 }
 
 const allActors      = ref<ActorProfile[]>([])
+let   actorAudio: HTMLAudioElement | null = null
 const fightOptions   = ref<FightOption[]>([])
 const actorsLoading  = ref(false)
 const hoverActor     = ref<ActorProfile | null>(null)
@@ -243,8 +244,10 @@ function resetSelection () {
 
 function playActorSound (soundUrl: string | null | undefined) {
   if (!soundUrl) return
+  if (actorAudio) { actorAudio.pause(); actorAudio = null }
   const url = soundUrl.startsWith('http') ? soundUrl : `${apiBase}${soundUrl}`
-  new Audio(url).play().catch(() => {})
+  actorAudio = new Audio(url)
+  actorAudio.play().catch(e => console.warn('[sound]', e))
 }
 
 async function selectP1 (actor: ActorProfile) {

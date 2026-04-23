@@ -115,7 +115,8 @@ router.get('/:id/co-fighters', async (req, res) => {
 // Admin — mettre à jour
 router.put('/:id', authMiddleware, async (req, res) => {
   try {
-    const actor = await Actor.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true })
+    const { soundUrl: _ignored, ...safeBody } = req.body
+    const actor = await Actor.findByIdAndUpdate(req.params.id, safeBody, { new: true, runValidators: true })
     if (!actor) return res.status(404).json({ error: 'Introuvable' })
 
     // Propager nom + photo dans toutes les scènes qui référencent cet acteur (par tmdbId)

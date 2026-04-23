@@ -241,7 +241,14 @@ function resetSelection () {
   useExportedVideo.value = false
 }
 
+function playActorSound (soundUrl: string | null | undefined) {
+  if (!soundUrl) return
+  const url = soundUrl.startsWith('http') ? soundUrl : `${apiBase}${soundUrl}`
+  new Audio(url).play().catch(() => {})
+}
+
 async function selectP1 (actor: ActorProfile) {
+  playActorSound(actor.soundUrl)
   fighter1.value = actor
   actorsLoading.value = true
   try {
@@ -262,6 +269,10 @@ async function selectP1 (actor: ActorProfile) {
 }
 
 function selectP2 (option: FightOption) {
+  const fullActor = allActors.value.find(a =>
+    option.coFighter.tmdbId ? a.tmdbId === option.coFighter.tmdbId : a.name === option.coFighter.name
+  )
+  playActorSound(fullActor?.soundUrl)
   fighter2.value = option.coFighter
   currentFight.value = option.fight
   noFightFound.value = false

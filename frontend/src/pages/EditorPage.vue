@@ -204,6 +204,15 @@
                   />
                   <span class="text-caption text-grey-4" style="width:32px;text-align:right">{{ player.finalHp }}%</span>
                 </div>
+
+                <!-- Annonce nom -->
+                <div class="row items-center q-gutter-xs q-mt-xs">
+                  <q-icon name="record_voice_over" size="11px" color="cyan-4" />
+                  <span class="text-caption text-grey-5 col" style="font-size:10px;white-space:nowrap">Annonce :</span>
+                  <span v-if="announceEventFor(player.id)" class="text-caption text-mono text-cyan-4" style="font-size:10px">{{ fmtTime(announceEventFor(player.id)!.time) }}</span>
+                  <q-btn v-if="announceEventFor(player.id)" flat dense round icon="close" size="xs" color="negative" @click="removeEvent(announceEventFor(player.id)!.id)" />
+                  <q-btn flat dense round icon="place" size="xs" color="cyan-4" @click="setAnnounceEvent(player.id)" :title="announceEventFor(player.id) ? 'Repositionner' : 'Poser ici'" />
+                </div>
               </div>
               <div v-if="!project.players.length" class="text-caption text-grey text-center q-py-xs">
                 Aucun personnage
@@ -878,6 +887,23 @@ function playerName (id: string) {
   return project.players.find(p => p.id === id)?.name ?? id
 }
 
+function announceEventFor (playerId: string) {
+  return project.events.find(e => e.type === 'announce' && e.target === playerId) ?? null
+}
+
+function setAnnounceEvent (playerId: string) {
+  const i = project.events.findIndex(e => e.type === 'announce' && e.target === playerId)
+  if (i >= 0) project.events.splice(i, 1)
+  project.events.push({
+    id:     crypto.randomUUID(),
+    time:   Math.round(currentTime.value * 100) / 100,
+    type:   'announce',
+    target: playerId,
+    damage: 0
+  })
+  scheduleAutoSave()
+}
+
 function setOutcomeEvent (type: string, targetId: string) {
   // Un seul event de ce type (outcome unique), on remplace s'il existe déjà
   const i = project.events.findIndex(e => e.type === type)
@@ -906,7 +932,7 @@ function recomputeDamages () {
   project.players.forEach(player => {
     const totalDamage = 100 - (player.finalHp ?? 0)
     const hitEvents   = project.events.filter(e =>
-      e.target === player.id && !['ko', 'death', 'surrender'].includes(e.type)
+      e.target === player.id && !['ko', 'death', 'surrender', 'announce'].includes(e.type)
     )
     const totalWeight = hitEvents.reduce((sum, e) => sum + (HIT_WEIGHTS[e.type] ?? 0), 0)
     hitEvents.forEach(e => {
@@ -984,6 +1010,7 @@ function eventIcon (type: string) {
     ko:        'star',
     death:     'dangerous',
     surrender: 'outlined_flag',
+    announce:  'record_voice_over',
     block:     'shield',
     hit:     'sports_martial_arts',
     ready:   'flag',
@@ -1004,6 +1031,7 @@ function eventColor (type: string) {
     ko:        'yellow',
     death:     'deep-purple-4',
     surrender: 'amber-6',
+    announce:  'cyan-4',
     block:     'grey-5',
     hit:     'orange',
     ready:   'green-5',
@@ -1024,6 +1052,7 @@ function eventLabel (type: string) {
     ko:        'KO',
     death:     'Death',
     surrender: 'Surrender',
+    announce:  'Annonce nom',
     block:     'Blocage',
     hit:     'Hit',
     ready:   'READY',

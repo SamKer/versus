@@ -4,6 +4,7 @@ const fs       = require('fs')
 const jwt      = require('jsonwebtoken')
 const Project  = require('../models/Project')
 const Fight    = require('../models/Fight')
+const Actor    = require('../models/Actor')
 const { compileProject } = require('../services/compiler')
 
 const router = express.Router()
@@ -125,8 +126,17 @@ router.post('/:fightId/export', auth, async (req, res) => {
     const exportPath = `/media/exports/${folderName}/${fileName}`
     exportProgress.set(fightId, 0)
 
+    // Enrichir les acteurs avec soundUrl depuis la collection Actor
+    const rawActors  = (fight.actors || []).map(a => a.toObject ? a.toObject() : { ...a })
+    const tmdbIds    = rawActors.map(a => a.tmdbId).filter(Boolean)
+    if (tmdbIds.length) {
+      const dbActors = await Actor.find({ tmdbId: { $in: tmdbIds } }).select('tmdbId soundUrl').lean()
+      const soundMap = Object.fromEntries(dbActors.map(a => [a.tmdbId, a.soundUrl]))
+      for (const a of rawActors) if (a.tmdbId && soundMap[a.tmdbId]) a.soundUrl = soundMap[a.tmdbId]
+    }
+
     // Fire and forget — client polls status
-    compileProject(project.toObject(), videoPath, outputPath, fight.actors || [], pct => {
+    compileProject(project.toObject(), videoPath, outputPath, rawActors, pct => {
       exportProgress.set(fightId, pct)
     })
       .then(async () => {

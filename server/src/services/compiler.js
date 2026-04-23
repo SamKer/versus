@@ -191,6 +191,34 @@ function genDraw (sr = 44100) {
   return makeWav(s, sr)
 }
 
+function genWins (sr = 44100) {
+  // Fanfare victorieuse : arpège C4-E4-G4-C5 puis accord final
+  const dur = 1.5
+  const s   = new Float32Array(Math.ceil(dur * sr))
+  const arp = [261.63, 329.63, 392.00, 523.25]
+  arp.forEach((freq, i) => {
+    const start = i * 0.12
+    const end   = start + 0.55
+    for (let j = Math.floor(start * sr); j < Math.min(Math.floor(end * sr), s.length); j++) {
+      const t   = (j / sr) - start
+      const env = Math.min(t / 0.015, 1) * Math.exp(-t * 4)
+      let v = 0
+      for (let k = 1; k <= 4; k++) v += (1 / k) * Math.sin(2 * Math.PI * freq * k * t)
+      s[j] += env * 0.28 * v
+    }
+  })
+  const chordStart = 0.58
+  for (let j = Math.floor(chordStart * sr); j < s.length; j++) {
+    const t   = (j / sr) - chordStart
+    const env = Math.min(t / 0.04, 1) * Math.exp(-t * 1.2)
+    let v = 0
+    for (const freq of arp)
+      for (let k = 1; k <= 3; k++) v += (1 / (k * arp.length)) * Math.sin(2 * Math.PI * freq * k * t)
+    s[j] += env * 0.55 * v
+  }
+  return makeWav(s, sr)
+}
+
 function ensureSounds (dataPath) {
   const { execSync } = require('child_process')
   const dir = path.join(dataPath, 'sounds')
@@ -203,6 +231,7 @@ function ensureSounds (dataPath) {
     { name: 'draw',      text: 'draw',      gen: genDraw      },
     { name: 'death',     text: 'death',     gen: genDeath     },
     { name: 'surrender', text: 'surrender', gen: genSurrender },
+    { name: 'wins',      text: 'wins',      gen: genWins      },
   ]
 
   const p = {}
@@ -588,25 +617,38 @@ async function compileProject (project, videoPath, outputPath, fightActors = [],
   const OUTCOME_SOUND = { ko: 'ko', draw: 'draw', death: 'death', surrender: 'surrender' }
   const outcomePath = outcomeEvt ? (soundPaths[OUTCOME_SOUND[outcomeEvt.type]] ?? soundPaths.ko) : soundPaths.ko
 
-  // Indices des inputs son dans ffmpeg : 2=ready, 3=fight, [4=outcome]
-  const soundInputArgs = [
-    '-i', soundPaths.ready,
-    '-i', soundPaths.fight,
-    ...(hasOutcome ? ['-i', outcomePath] : [])
-  ]
-  const readyIdx   = 2, fightIdx = 3, outcomeIdx = hasOutcome ? 4 : -1
-  const soundCount = hasOutcome ? 3 : 2
-  const mixInputs  = 1 + soundCount
+  // ── Announce events (son acteur + wins) ──────────────────────────────────
+  const announceAudio = []
+  for (const evt of allEvts.filter(e => e.type === 'announce')) {
+    const player = (project.players || []).find(p => p.id === evt.target)
+    if (!player) continue
+    const actor = findFightActor(player, fightActors)
+    if (!actor?.soundUrl) continue
+    const actorFilePath = path.join(dataPath, actor.soundUrl.replace(/^\/media\//, ''))
+    if (!fs.existsSync(actorFilePath)) continue
+    const actorMs = Math.max(0, videoTimeToOutputMs(evt.time, cuts))
+    announceAudio.push({ actorPath: actorFilePath, actorMs, winsMs: actorMs + 1500 })
+  }
+
+  // ── Build dynamic sound input list (inputs 0=video, 1=pipe, 2+=sons) ────
+  const soundDefs = []
+  soundDefs.push({ path: soundPaths.ready, delayMs: readyMs,  label: 'readya'  })
+  soundDefs.push({ path: soundPaths.fight, delayMs: fightMs,  label: 'fighta'  })
+  if (hasOutcome) soundDefs.push({ path: outcomePath, delayMs: outcomeMs, label: 'outcomea' })
+  announceAudio.forEach((a, i) => {
+    soundDefs.push({ path: a.actorPath,       delayMs: a.actorMs, label: `ann_actor${i}a` })
+    soundDefs.push({ path: soundPaths.wins,   delayMs: a.winsMs,  label: `ann_wins${i}a`  })
+  })
+
+  const soundInputArgs = soundDefs.flatMap(d => ['-i', d.path])
 
   // ── Build filter_complex ──────────────────────────────────────────────────
   const buildAudioMix = (mainLabel) => {
-    const parts = [
-      `[${readyIdx}:a]volume=5.0,adelay=${readyMs}:all=1[readya]`,
-      `[${fightIdx}:a]volume=5.0,adelay=${fightMs}:all=1[fighta]`,
-      ...(hasOutcome ? [`[${outcomeIdx}:a]volume=5.0,adelay=${outcomeMs}:all=1[outcomea]`] : []),
-      `[${mainLabel}][readya][fighta]${hasOutcome ? '[outcomea]' : ''}amix=inputs=${mixInputs}:duration=first:normalize=0[outa]`
-    ]
-    return parts.join(';')
+    const firstIdx = 2
+    const filters  = soundDefs.map((d, i) => `[${firstIdx + i}:a]volume=5.0,adelay=${d.delayMs}:all=1[${d.label}]`)
+    const labels   = soundDefs.map(d => `[${d.label}]`).join('')
+    filters.push(`[${mainLabel}]${labels}amix=inputs=${1 + soundDefs.length}:duration=first:normalize=0[outa]`)
+    return filters.join(';')
   }
 
   let filterComplex

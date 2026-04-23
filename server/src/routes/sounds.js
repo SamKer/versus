@@ -4,7 +4,7 @@ const fs      = require('fs')
 const jwt     = require('jsonwebtoken')
 
 const router     = express.Router()
-const SOUND_NAMES = ['ready', 'fight', 'ko', 'draw', 'death', 'surrender']
+const SOUND_NAMES = ['ready', 'fight', 'ko', 'draw', 'death', 'surrender', 'wins']
 
 function soundsDir () {
   const dataPath = process.env.DATA_PATH || path.join(__dirname, '../../../../data')

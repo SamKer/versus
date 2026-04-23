@@ -621,14 +621,19 @@ async function compileProject (project, videoPath, outputPath, fightActors = [],
   const announceAudio = []
   for (const evt of allEvts.filter(e => e.type === 'announce')) {
     const player = (project.players || []).find(p => p.id === evt.target)
+    console.log(`[announce] evt.target=${evt.target} player=${player?.name ?? 'NOT FOUND'}`)
     if (!player) continue
     const actor = findFightActor(player, fightActors)
+    console.log(`[announce] actor=${actor?.name ?? 'NOT FOUND'} soundUrl=${actor?.soundUrl ?? 'NONE'}`)
     if (!actor?.soundUrl) continue
     const actorFilePath = path.join(dataPath, actor.soundUrl.replace(/^\/media\//, ''))
+    console.log(`[announce] actorFilePath=${actorFilePath} exists=${fs.existsSync(actorFilePath)}`)
     if (!fs.existsSync(actorFilePath)) continue
     const actorMs = Math.max(0, videoTimeToOutputMs(evt.time, cuts))
     announceAudio.push({ actorPath: actorFilePath, actorMs, winsMs: actorMs + 1500 })
+    console.log(`[announce] OK — actorMs=${actorMs} winsMs=${actorMs + 1500}`)
   }
+  console.log(`[announce] ${announceAudio.length} announce(s) à mixer`)
 
   // ── Build dynamic sound input list (inputs 0=video, 1=pipe, 2+=sons) ────
   const soundDefs = []

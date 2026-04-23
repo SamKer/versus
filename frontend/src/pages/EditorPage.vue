@@ -249,7 +249,7 @@
                 <span class="text-caption text-grey-4" style="width:72px;font-size:10px">K.O.</span>
                 <div class="row col q-gutter-xs">
                   <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
-                    :label="p.name.slice(0,8)"
+                    icon="place" :label="p.name.slice(0,8)"
                     :color="koEvent?.target === p.id ? 'yellow' : 'grey-6'"
                     @click="setOutcomeEvent('ko', p.id)" />
                   <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
@@ -273,7 +273,7 @@
                 <span class="text-caption text-grey-4" style="width:72px;font-size:10px">DEATH</span>
                 <div class="row col q-gutter-xs">
                   <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
-                    :label="p.name.slice(0,8)"
+                    icon="place" :label="p.name.slice(0,8)"
                     :color="deathEvent?.target === p.id ? 'deep-purple-3' : 'grey-6'"
                     @click="setOutcomeEvent('death', p.id)" />
                   <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>
@@ -288,7 +288,7 @@
                 <span class="text-caption text-grey-4" style="width:72px;font-size:10px">SURRENDER</span>
                 <div class="row col q-gutter-xs">
                   <q-btn v-for="p in project.players" :key="p.id" flat dense no-caps size="xs"
-                    :label="p.name.slice(0,8)"
+                    icon="place" :label="p.name.slice(0,8)"
                     :color="surrenderEvent?.target === p.id ? 'amber-6' : 'grey-6'"
                     @click="setOutcomeEvent('surrender', p.id)" />
                   <span v-if="!project.players.length" class="text-caption text-grey-7 q-pl-xs">—</span>

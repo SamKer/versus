@@ -87,6 +87,10 @@ substep() { echo -e "\n  ${BOLD}${CYAN}▶ $1${RESET}"; }
 ok()      { echo -e "  ${GREEN}✔${RESET}  $1"; }
 info()    { echo -e "  ${DIM}${WHITE}▸ $1${RESET}"; }
 
+# Charge nvm (SSH non-interactif ne source pas le profil shell)
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+
 cd ~/versus
 
 # a — git pull

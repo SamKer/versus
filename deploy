@@ -1,0 +1,123 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+# ─── Couleurs ────────────────────────────────────────────────────────────────
+BOLD="\033[1m"
+DIM="\033[2m"
+RED="\033[31m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+CYAN="\033[36m"
+WHITE="\033[97m"
+RESET="\033[0m"
+
+REMOTE="toky"
+PROJECT_DIR="/home/sam/www/samker/versus"
+
+# ─── Helpers ─────────────────────────────────────────────────────────────────
+step() {
+  echo ""
+  echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+  echo -e "${BOLD}${WHITE}  $1${RESET}"
+  echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
+}
+
+ok() {
+  echo -e "  ${GREEN}✔${RESET}  $1"
+}
+
+info() {
+  echo -e "  ${DIM}${WHITE}▸ $1${RESET}"
+}
+
+fail() {
+  echo -e "  ${RED}✘  $1${RESET}"
+  exit 1
+}
+
+banner() {
+  echo ""
+  echo -e "${BOLD}${YELLOW}╔══════════════════════════════════════════════════╗${RESET}"
+  echo -e "${BOLD}${YELLOW}║          VERSUS — DEPLOY                         ║${RESET}"
+  echo -e "${BOLD}${YELLOW}╚══════════════════════════════════════════════════╝${RESET}"
+  echo ""
+}
+
+# ─── Main ────────────────────────────────────────────────────────────────────
+banner
+
+cd "$PROJECT_DIR"
+
+# ── Étape 1 : Git local ───────────────────────────────────────────────────────
+step "1/2 · GIT — commit & push local"
+
+if [ -z "$(git status --porcelain)" ]; then
+  info "Aucun changement local à committer"
+else
+  info "Ajout de tous les fichiers modifiés..."
+  git add -A
+
+  echo -e "\n  ${YELLOW}Message de commit :${RESET} \c"
+  read -r COMMIT_MSG
+  [ -z "$COMMIT_MSG" ] && COMMIT_MSG="deploy: mise à jour $(date '+%Y-%m-%d %H:%M')"
+
+  git commit -m "$COMMIT_MSG"
+  ok "Commit : $COMMIT_MSG"
+fi
+
+info "Push vers origin..."
+git push
+ok "Push effectué"
+
+# ── Étape 2 : Remote ─────────────────────────────────────────────────────────
+step "2/2 · REMOTE ($REMOTE) — pull, build & restart"
+
+ssh "$REMOTE" bash <<'REMOTE_SCRIPT'
+set -euo pipefail
+
+BOLD="\033[1m"
+DIM="\033[2m"
+GREEN="\033[32m"
+YELLOW="\033[33m"
+CYAN="\033[36m"
+WHITE="\033[97m"
+RESET="\033[0m"
+
+substep() { echo -e "\n  ${BOLD}${CYAN}▶ $1${RESET}"; }
+ok()      { echo -e "  ${GREEN}✔${RESET}  $1"; }
+info()    { echo -e "  ${DIM}${WHITE}▸ $1${RESET}"; }
+
+cd ~/versus
+
+# a — git pull
+substep "a · Git pull"
+git pull
+ok "Dépôt à jour"
+
+# b — build front
+substep "b · Build frontend (Quasar)"
+cd frontend
+info "quasar build en cours..."
+quasar build
+ok "Frontend buildé → dist/spa/"
+cd ..
+
+# c — build docs
+substep "c · Build documentation (MkDocs)"
+info "mkdocs build en cours..."
+docker compose run --rm docs mkdocs build
+ok "Documentation générée → site/"
+
+# d — restart conteneurs
+substep "d · Restart conteneurs Docker"
+docker compose restart server
+ok "Conteneur 'versus-server' redémarré"
+
+REMOTE_SCRIPT
+
+# ─── Fin ─────────────────────────────────────────────────────────────────────
+echo ""
+echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════╗${RESET}"
+echo -e "${BOLD}${GREEN}║  ✔  Déploiement terminé avec succès !            ║${RESET}"
+echo -e "${BOLD}${GREEN}╚══════════════════════════════════════════════════╝${RESET}"
+echo ""

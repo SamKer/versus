@@ -76,6 +76,10 @@ ok "Documentation générée → site/"
 # ── Étape 3 : Rsync vers remote ───────────────────────────────────────────────
 step "3/4 · RSYNC → $REMOTE"
 
+info "Création des répertoires distants si nécessaire..."
+ssh "$REMOTE" "mkdir -p $REMOTE_DIR/frontend/dist/spa $REMOTE_DIR/server/src $REMOTE_DIR/site $REMOTE_DIR/public"
+ok "Répertoires distants prêts"
+
 rsync_dir() {
   local src="$1"
   local dst="$2"

@@ -96,12 +96,14 @@ rsync_dir "public/"             "public/"             "public"
 rsync -az compose.yml "$REMOTE:$REMOTE_DIR/compose.yml"
 ok "compose.yml synchronisé"
 
+rsync_dir "server/node_modules/"  "server/node_modules/"  "server/node_modules"
+
 # ── Étape 4 : Restart remote ──────────────────────────────────────────────────
 step "4/4 · RESTART conteneurs ($REMOTE)"
 
-info "Redémarrage de versus-server..."
-ssh "$REMOTE" "cd $REMOTE_DIR && docker compose restart server"
-ok "Conteneur 'versus-server' redémarré"
+info "Démarrage de tous les conteneurs..."
+ssh "$REMOTE" "cd $REMOTE_DIR && docker compose up -d"
+ok "Conteneurs démarrés"
 
 # ─── Fin ─────────────────────────────────────────────────────────────────────
 echo ""

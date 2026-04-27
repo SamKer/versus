@@ -26,6 +26,7 @@ services:
       DOCS_PATH: /app/docs
     volumes:
       - ./server/src:/app/src
+      - ./server/node_modules:/app/node_modules
       - ./data:/app/data
       - ./frontend/dist/spa:/app/public:ro
       - ./site:/app/docs:ro

@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+# ─── Config ──────────────────────────────────────────────────────────────────
+REMOTE="toky"
+REMOTE_DIR="~/versus"
+LOCAL_DIR="/home/sam/www/samker/versus"
+
 # ─── Couleurs ────────────────────────────────────────────────────────────────
 BOLD="\033[1m"
 DIM="\033[2m"
@@ -11,10 +16,6 @@ CYAN="\033[36m"
 WHITE="\033[97m"
 RESET="\033[0m"
 
-REMOTE="toky"
-PROJECT_DIR="/home/sam/www/samker/versus"
-
-# ─── Helpers ─────────────────────────────────────────────────────────────────
 step() {
   echo ""
   echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
@@ -22,18 +23,9 @@ step() {
   echo -e "${BOLD}${CYAN}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${RESET}"
 }
 
-ok() {
-  echo -e "  ${GREEN}✔${RESET}  $1"
-}
-
-info() {
-  echo -e "  ${DIM}${WHITE}▸ $1${RESET}"
-}
-
-fail() {
-  echo -e "  ${RED}✘  $1${RESET}"
-  exit 1
-}
+ok()   { echo -e "  ${GREEN}✔${RESET}  $1"; }
+info() { echo -e "  ${DIM}${WHITE}▸ $1${RESET}"; }
+fail() { echo -e "  ${RED}✘  $1${RESET}"; exit 1; }
 
 banner() {
   echo ""
@@ -45,11 +37,10 @@ banner() {
 
 # ─── Main ────────────────────────────────────────────────────────────────────
 banner
-
-cd "$PROJECT_DIR"
+cd "$LOCAL_DIR"
 
 # ── Étape 1 : Git local ───────────────────────────────────────────────────────
-step "1/2 · GIT — commit & push local"
+step "1/4 · GIT — commit & push local"
 
 if [ -z "$(git status --porcelain)" ]; then
   info "Aucun changement local à committer"
@@ -69,55 +60,44 @@ info "Push vers origin..."
 git push
 ok "Push effectué"
 
-# ── Étape 2 : Remote ─────────────────────────────────────────────────────────
-step "2/2 · REMOTE ($REMOTE) — pull, build & restart"
+# ── Étape 2 : Build local ─────────────────────────────────────────────────────
+step "2/4 · BUILD local"
 
-ssh "$REMOTE" bash <<'REMOTE_SCRIPT'
-set -euo pipefail
-
-BOLD="\033[1m"
-DIM="\033[2m"
-GREEN="\033[32m"
-YELLOW="\033[33m"
-CYAN="\033[36m"
-WHITE="\033[97m"
-RESET="\033[0m"
-
-substep() { echo -e "\n  ${BOLD}${CYAN}▶ $1${RESET}"; }
-ok()      { echo -e "  ${GREEN}✔${RESET}  $1"; }
-info()    { echo -e "  ${DIM}${WHITE}▸ $1${RESET}"; }
-
-# Charge nvm (SSH non-interactif ne source pas le profil shell)
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
-
-cd ~/versus
-
-# a — git pull
-substep "a · Git pull"
-git pull
-ok "Dépôt à jour"
-
-# b — build front
-substep "b · Build frontend (Quasar)"
-cd frontend
-info "quasar build en cours..."
+info "Build frontend (Quasar)..."
+cd "$LOCAL_DIR/frontend"
 quasar build
-ok "Frontend buildé → dist/spa/"
-cd ..
+ok "Frontend buildé → frontend/dist/spa/"
 
-# c — build docs
-substep "c · Build documentation (MkDocs)"
-info "mkdocs build en cours..."
+info "Build documentation (MkDocs)..."
+cd "$LOCAL_DIR"
 docker compose run --rm docs mkdocs build
 ok "Documentation générée → site/"
 
-# d — restart conteneurs
-substep "d · Restart conteneurs Docker"
-docker compose restart server
-ok "Conteneur 'versus-server' redémarré"
+# ── Étape 3 : Rsync vers remote ───────────────────────────────────────────────
+step "3/4 · RSYNC → $REMOTE"
 
-REMOTE_SCRIPT
+rsync_dir() {
+  local src="$1"
+  local dst="$2"
+  local label="$3"
+  info "Sync $label..."
+  rsync -az --delete "$src" "$REMOTE:$REMOTE_DIR/$dst"
+  ok "$label synchronisé"
+}
+
+rsync_dir "frontend/dist/spa/"  "frontend/dist/spa/"  "frontend/dist/spa"
+rsync_dir "server/src/"         "server/src/"         "server/src"
+rsync_dir "site/"               "site/"               "site (docs)"
+rsync_dir "public/"             "public/"             "public"
+rsync -az compose.yml "$REMOTE:$REMOTE_DIR/compose.yml"
+ok "compose.yml synchronisé"
+
+# ── Étape 4 : Restart remote ──────────────────────────────────────────────────
+step "4/4 · RESTART conteneurs ($REMOTE)"
+
+info "Redémarrage de versus-server..."
+ssh "$REMOTE" "cd $REMOTE_DIR && docker compose restart server"
+ok "Conteneur 'versus-server' redémarré"
 
 # ─── Fin ─────────────────────────────────────────────────────────────────────
 echo ""

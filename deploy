@@ -90,19 +90,18 @@ rsync_dir() {
 }
 
 rsync_dir "frontend/dist/spa/"  "frontend/dist/spa/"  "frontend/dist/spa"
-rsync_dir "server/src/"         "server/src/"         "server/src"
+rsync -az --delete --exclude='node_modules' server/ "$REMOTE:$REMOTE_DIR/server/"
+ok "server/ synchronisé (sans node_modules)"
 rsync_dir "site/"               "site/"               "site (docs)"
 rsync_dir "public/"             "public/"             "public"
 rsync -az compose.yml "$REMOTE:$REMOTE_DIR/compose.yml"
 ok "compose.yml synchronisé"
 
-rsync_dir "server/node_modules/"  "server/node_modules/"  "server/node_modules"
+# ── Étape 4 : Build & restart remote ─────────────────────────────────────────
+step "4/4 · BUILD & RESTART conteneurs ($REMOTE)"
 
-# ── Étape 4 : Restart remote ──────────────────────────────────────────────────
-step "4/4 · RESTART conteneurs ($REMOTE)"
-
-info "Démarrage de tous les conteneurs..."
-ssh "$REMOTE" "cd $REMOTE_DIR && docker compose up -d"
+info "Rebuild image server + démarrage..."
+ssh "$REMOTE" "cd $REMOTE_DIR && docker compose up -d --build server"
 ok "Conteneurs démarrés"
 
 # ─── Fin ─────────────────────────────────────────────────────────────────────

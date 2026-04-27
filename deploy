@@ -70,7 +70,7 @@ ok "Frontend buildé → frontend/dist/spa/"
 
 info "Build documentation (MkDocs)..."
 cd "$LOCAL_DIR"
-docker compose run --rm docs mkdocs build
+docker compose run --rm docs build
 ok "Documentation générée → site/"
 
 # ── Étape 3 : Rsync vers remote ───────────────────────────────────────────────
